@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "607456316264",
+    "project_id": "chestsense-d7abc",
+    "storage_bucket": "chestsense-d7abc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:607456316264:android:150165b42661db3496a4dd",
+        "android_client_info": {
+          "package_name": "com.example.chestsense"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC-bXwSHZpC4qjYggXt11jXnyIlIQ4xxS4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,29 @@
+{
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "chestsense-d7abc",
+          "appId": "1:607456316264:android:150165b42661db3496a4dd",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "chestsense-d7abc",
+          "configurations": {
+            "android": "1:607456316264:android:150165b42661db3496a4dd",
+            "web": "1:607456316264:web:63324bad7236461296a4dd"
+          }
+        }
+      }
+    }
+  }
+}
