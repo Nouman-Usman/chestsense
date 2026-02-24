@@ -58,7 +58,7 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen>
   Widget build(BuildContext context) {
     final auth = context.read<FirebaseAuthService>();
     final name = auth.currentUser?.displayName ?? 'Doctor';
-    final firstName = name.split(' ').first;
+    final firstName = name.split(' ').last;
 
     return Scaffold(
       backgroundColor: AppColors.bg,
