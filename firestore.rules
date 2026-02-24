@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper functions ───────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return request.auth.uid == uid;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isDoctor() {
+      return isSignedIn() && getUserData().role == 'doctor';
+    }
+
+    // ── User profiles ──────────────────────────────────────────────────────
+    // Each user can read and write only their own profile.
+    match /users/{userId} {
+      allow read:   if isSignedIn() && (isOwner(userId) || isDoctor());
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isSignedIn() && isOwner(userId);
+      allow delete: if false; // never delete profiles
+    }
+
+    // ── Patient profiles ───────────────────────────────────────────────────
+    match /patients/{patientId} {
+      allow read:   if isSignedIn() && (isOwner(patientId) || isDoctor());
+      allow create: if isSignedIn() && isOwner(patientId);
+      allow update: if isSignedIn() && isOwner(patientId);
+      allow delete: if false;
+
+      // X-ray analysis results sub-collection
+      match /analyses/{analysisId} {
+        allow read:   if isSignedIn() && (isOwner(patientId) || isDoctor());
+        allow create: if isSignedIn() && isOwner(patientId);
+        allow update: if isSignedIn() && isOwner(patientId);
+        allow delete: if false;
+      }
+    }
+
+    // ── Doctor profiles ────────────────────────────────────────────────────
+    match /doctors/{doctorId} {
+      allow read:   if isSignedIn();
+      allow create: if isSignedIn() && isOwner(doctorId);
+      allow update: if isSignedIn() && isOwner(doctorId);
+      allow delete: if false;
+    }
+
+    // ── Shared analyses collection (for cross-patient queries) ─────────────
+    match /analyses/{analysisId} {
+      allow read:   if isSignedIn() &&
+                       (resource.data.userId == request.auth.uid || isDoctor());
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // ── Notifications ──────────────────────────────────────────────────────
+    match /notifications/{notifId} {
+      allow read:   if isSignedIn() && resource.data.recipientUid == request.auth.uid;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource.data.recipientUid == request.auth.uid;
+      allow delete: if false;
+    }
+  }
+}
