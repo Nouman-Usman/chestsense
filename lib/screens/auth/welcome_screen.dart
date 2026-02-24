@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
-import 'role_selection_screen.dart';
+import 'login_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -155,7 +155,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           PrimaryButton(
                             label: 'Get Started',
                             trailingIcon: Icons.arrow_forward_rounded,
-                            onPressed: () => Navigator.of(context).push(_fadeRoute(const RoleSelectionScreen())),
+                            onPressed: () => Navigator.of(context).push(_fadeRoute(const LoginScreen())),
                           ),
                           const SizedBox(height: 20),
                           Center(

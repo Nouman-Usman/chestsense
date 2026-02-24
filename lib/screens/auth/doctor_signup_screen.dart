@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../services/firebase_auth_service.dart';
 import '../../services/firebase_db_service.dart';
-import 'doctor_login_screen.dart';
+import 'login_screen.dart';
 
 class DoctorSignupScreen extends StatefulWidget {
   const DoctorSignupScreen({super.key});
@@ -93,7 +93,7 @@ class _DoctorSignupScreenState extends State<DoctorSignupScreen>
       );
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
-        _fadeRoute(const DoctorLoginScreen()), (_) => false);
+        _fadeRoute(const LoginScreen()), (_) => false);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -207,7 +207,8 @@ class _DoctorSignupScreenState extends State<DoctorSignupScreen>
                     children: [
                       Text('Already have an account?', style: AppText.bodySm),
                       TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: () => Navigator.of(context).pushReplacement(_fadeRoute(const LoginScreen())),
+                        style: TextButton.styleFrom(foregroundColor: _accent),
                         child: const Text('Sign in'),
                       ),
                     ],
