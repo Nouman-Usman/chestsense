@@ -17,6 +17,10 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Initialize ML Services (YOLO & Doctr)
+  final mlService = MLService();
+  await mlService.initialize();
   
   SystemChrome.setSystemUIOverlayStyle(AppTheme.systemBarDark);
   SystemChrome.setPreferredOrientations([

@@ -1,13 +1,123 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'yolo_detection_service.dart';
+import 'doctr_service.dart';
 
 /// Change this to your ML backend URL.
 const String kMlBaseUrl = 'https://your-ml-api.example.com';
 
 class MLService {
-  /// Submit a chest X-ray for classification.
+  final YoloDetectionService _yoloService = YoloDetectionService();
+  final DoctrService _doctrService = DoctrService();
+
+  /// Initialize all ML services
+  Future<void> initialize() async {
+    try {
+      await _yoloService.initialize();
+      debugPrint('ML Services initialized successfully');
+    } catch (e) {
+      debugPrint('Error initializing ML services: $e');
+    }
+  }
+
+  /// YOLO Detection: Detect anomalies in chest X-ray
+  /// Returns detection objects with confidence scores
+  Future<YoloDetectionResult> detectAnomalies({
+    required dynamic imageFile, // File on mobile, Uint8List on web
+    required int imageWidth,
+    required int imageHeight,
+  }) async {
+    try {
+      return await _yoloService.detectObjects(
+        imageFile: imageFile,
+        imageWidth: imageWidth,
+        imageHeight: imageHeight,
+      );
+    } catch (e) {
+      debugPrint('Detection error: $e');
+      return YoloDetectionResult.error('Detection failed: $e');
+    }
+  }
+
+  /// Doctr: Extract and recognize text from document
+  /// Useful for analyzing reports, prescriptions, notes
+  Future<DocumentText> recognizeDocument({
+    required dynamic imageFile, // File on mobile, Uint8List on web
+  }) async {
+    try {
+      return await _doctrService.recognizeDocument(imageFile: imageFile);
+    } catch (e) {
+      debugPrint('Document recognition error: $e');
+      return DocumentText(
+        fullText: '',
+        blocks: [],
+        confidence: 0.0,
+        charactersCount: 0,
+        keywordsDetected: [],
+      );
+    }
+  }
+
+  /// Extract metadata from recognized document
+  Map<String, String> getDocumentMetadata(DocumentText document) {
+    return _doctrService.extractDocumentMetadata(document);
+  }
+
+  /// Check document quality
+  double getDocumentQuality(DocumentText document) {
+    return _doctrService.getDocumentQualityScore(document);
+  }
+
+  /// Combined analysis: Run both YOLO detection and OCR
+  /// Returns comprehensive analysis of chest X-ray with document data
+  Future<CombinedAnalysisResult> analyzeChestXray({
+    required dynamic imageFile, // File on mobile, Uint8List on web
+    required String imageUrl, // Already-uploaded Storage URL
+    required int imageWidth,
+    required int imageHeight,
+    bool includeDocumentOCR = true,
+    bool useBackendAPI = false,
+  }) async {
+    try {
+      // Run YOLO detection
+      final yoloResult = await detectAnomalies(
+        imageFile: imageFile,
+        imageWidth: imageWidth,
+        imageHeight: imageHeight,
+      );
+
+      // Run OCR if requested
+      DocumentText? ocrResult;
+      if (includeDocumentOCR) {
+        ocrResult = await recognizeDocument(imageFile: imageFile);
+      }
+
+      // Optionally use backend API for additional analysis
+      MLResponse? backendResult;
+      if (useBackendAPI) {
+        backendResult = await analyze(
+          file: imageFile,
+          imageUrl: imageUrl,
+          requestHeatmap: false,
+        );
+      }
+
+      return CombinedAnalysisResult(
+        yoloDetection: yoloResult,
+        documentOCR: ocrResult,
+        backendAnalysis: backendResult,
+        timestamp: DateTime.now(),
+      );
+    } catch (e) {
+      debugPrint('Combined analysis error: $e');
+      return CombinedAnalysisResult.error('Analysis failed: $e');
+    }
+  }
+
+  /// Submit a chest X-ray for classification (Backend API).
   /// Expects the backend to respond with:
   /// {
   ///   "diagnosis": "Pneumonia",
@@ -65,6 +175,12 @@ class MLService {
       return MLResponse.error(e.toString());
     }
   }
+
+  /// Clean up resources
+  void dispose() {
+    _yoloService.dispose();
+    _doctrService.dispose();
+  }
 }
 
 enum AnalysisStatus { complete, error }
@@ -95,4 +211,131 @@ class MLResponse {
       );
 
   bool get isSuccess => status == AnalysisStatus.complete;
+}
+
+/// Combined result from YOLO detection + Doctr OCR + optional backend analysis
+class CombinedAnalysisResult {
+  final YoloDetectionResult yoloDetection;
+  final DocumentText? documentOCR;
+  final MLResponse? backendAnalysis;
+  final DateTime timestamp;
+  final String? errorMessage;
+
+  const CombinedAnalysisResult({
+    required this.yoloDetection,
+    this.documentOCR,
+    this.backendAnalysis,
+    required this.timestamp,
+    this.errorMessage,
+  });
+
+  /// Get combined severity assessment
+  String getCombinedSeverity() {
+    if (errorMessage != null) return 'error';
+
+    // Combine YOLO severity with document findings
+    var yoloSeverity = yoloDetection.anomalySeverity;
+    
+    if (documentOCR != null && _containsCriticalKeywords(documentOCR!)) {
+      if (yoloSeverity != 'critical') {
+        yoloSeverity = 'moderate';
+      }
+    }
+
+    return yoloSeverity;
+  }
+
+  /// Check if document contains critical findings
+  bool _containsCriticalKeywords(DocumentText doc) {
+    const criticalTerms = [
+      'pneumonia',
+      'tuberculosis',
+      'fracture',
+      'nodule',
+      'critical',
+      'severe',
+    ];
+
+    final text = doc.fullText.toLowerCase();
+    return criticalTerms.any((term) => text.contains(term));
+  }
+
+  /// Generate comprehensive report
+  String generateReport() {
+    final buffer = StringBuffer();
+
+    buffer.writeln('=== CHEST X-RAY ANALYSIS REPORT ===\n');
+    buffer.writeln('Timestamp: $timestamp\n');
+
+    // YOLO Detection Report
+    buffer.writeln('YOLO DETECTION ANALYSIS:');
+    buffer.writeln('Severity: ${yoloDetection.anomalySeverity}');
+    buffer.writeln('Anomaly Score: ${(yoloDetection.anomalyScore * 100).toStringAsFixed(1)}%');
+    buffer.writeln('Primary Finding: ${yoloDetection.primaryAnomaly}');
+    buffer.writeln('Detections Found: ${yoloDetection.detections.length}');
+    
+    if (yoloDetection.detections.isNotEmpty) {
+      buffer.writeln('\nDetailed Detections:');
+      for (final detection in yoloDetection.getSortedByConfidence()) {
+        buffer.writeln(
+          '  - ${detection.className}: ${(detection.confidence * 100).toStringAsFixed(1)}%',
+        );
+      }
+    }
+
+    // OCR Report
+    if (documentOCR != null) {
+      buffer.writeln('\n\nDOCUMENT OCR ANALYSIS:');
+      buffer.writeln('Characters Recognized: ${documentOCR!.charactersCount}');
+      buffer.writeln('OCR Confidence: ${(documentOCR!.confidence * 100).toStringAsFixed(1)}%');
+      
+      if (documentOCR!.keywordsDetected.isNotEmpty) {
+        buffer.writeln('Medical Keywords Found:');
+        for (final keyword in documentOCR!.keywordsDetected) {
+          buffer.writeln('  - $keyword');
+        }
+      }
+    }
+
+    // Backend Analysis
+    if (backendAnalysis != null && backendAnalysis!.isSuccess) {
+      buffer.writeln('\n\nBACKEND ANALYSIS:');
+      buffer.writeln('Diagnosis: ${backendAnalysis!.diagnosis}');
+      buffer.writeln('Confidence: ${(backendAnalysis!.confidence * 100).toStringAsFixed(1)}%');
+    }
+
+    buffer.writeln('\n\nCOMBINED ASSESSMENT:');
+    buffer.writeln('Overall Severity: ${getCombinedSeverity()}');
+    buffer.writeln(yoloDetection.getSeverityDescription());
+
+    return buffer.toString();
+  }
+
+  /// Serialize to map for Firebase storage
+  Map<String, dynamic> toMap() {
+    return {
+      'timestamp': timestamp.toIso8601String(),
+      'yoloDetection': yoloDetection.toMap(),
+      'documentOCR': documentOCR?.toMap(),
+      'backendAnalysis': backendAnalysis != null
+          ? {
+              'diagnosis': backendAnalysis!.diagnosis,
+              'confidence': backendAnalysis!.confidence,
+              'classScores': backendAnalysis!.classScores,
+            }
+          : null,
+      'combinedSeverity': getCombinedSeverity(),
+    };
+  }
+
+  /// Error result
+  factory CombinedAnalysisResult.error(String message) => CombinedAnalysisResult(
+        yoloDetection: YoloDetectionResult.error(message),
+        documentOCR: null,
+        backendAnalysis: null,
+        timestamp: DateTime.now(),
+        errorMessage: message,
+      );
+
+  bool get isSuccess => errorMessage == null && yoloDetection.isSuccess;
 }

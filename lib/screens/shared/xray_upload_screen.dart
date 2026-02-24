@@ -27,10 +27,12 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
   // ── Flow state ─────────────────────────────────────────────────────────────
   bool _uploading = false;
   bool _analyzing = false;
+  bool _useOCR = true; // Toggle for Doctr OCR
   String? _errorMsg;
 
   // ── Result state ───────────────────────────────────────────────────────────
   MLResponse? _result;
+  CombinedAnalysisResult? _combinedResult;
   String? _imageUrl;
 
   // ── Animation ──────────────────────────────────────────────────────────────
@@ -85,7 +87,7 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
     }
   }
 
-  // ── Upload → Analyse ──────────────────────────────────────────────────────
+  // ── Upload → Analyse (with YOLO + Doctr) ─────────────────────────────────
   Future<void> _analyzeXray() async {
     if (_xfile == null) return;
 
@@ -100,6 +102,7 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
       _analyzing = false;
       _errorMsg  = null;
       _result    = null;
+      _combinedResult = null;
     });
 
     try {
@@ -109,22 +112,40 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
       _imageUrl = url;
       setState(() { _uploading = false; _analyzing = true; });
 
-      // 2 – Call ML service
-      final response = await ml.analyze(file: fileArg, imageUrl: url);
-      setState(() { _analyzing = false; _result = response; });
+      // 2 – Run combined analysis (YOLO detection + Doctr OCR)
+      final imageWidth = 640; // Default size, can be obtained from image metadata
+      final imageHeight = 640;
+      
+      final combinedResult = await ml.analyzeChestXray(
+        imageFile: fileArg,
+        imageUrl: url,
+        imageWidth: imageWidth,
+        imageHeight: imageHeight,
+        includeDocumentOCR: _useOCR,
+        useBackendAPI: false, // Set to true if backend is configured
+      );
 
-      if (response.isSuccess) {
-        // 3 – Persist result to Firestore
+      setState(() { 
+        _analyzing = false;
+        _combinedResult = combinedResult;
+      });
+
+      if (combinedResult.isSuccess) {
+        // 3 – Persist result to Firestore with combined data
         await db.saveAnalysisResult(
           patientUid: uid,
           imageUrl: url,
-          diagnosis: response.diagnosis,
-          confidence: response.confidence,
-          classScores: response.classScores,
-          heatmapUrl: response.heatmapUrl,
+          diagnosis: combinedResult.yoloDetection.primaryAnomaly,
+          confidence: combinedResult.yoloDetection.anomalyScore,
+          classScores: {
+            'severity_${combinedResult.yoloDetection.anomalySeverity}': 1.0,
+            'detections_count': combinedResult.yoloDetection.detections.length.toDouble(),
+            'ocr_confidence': combinedResult.documentOCR?.confidence ?? 0.0,
+          },
+          heatmapUrl: null,
         );
       } else {
-        setState(() => _errorMsg = response.errorMessage);
+        setState(() => _errorMsg = combinedResult.errorMessage);
       }
     } catch (e) {
       setState(() {
@@ -297,6 +318,166 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
     );
   }
 
+  /// Build combined analysis result card (YOLO + Doctr)
+  Widget _buildCombinedResultCard(CombinedAnalysisResult res) {
+    if (!res.isSuccess) {
+      return _ErrorCard(message: res.errorMessage ?? 'Analysis failed');
+    }
+
+    final yolo = res.yoloDetection;
+    final ocr = res.documentOCR;
+
+    // Determine severity color
+    Color severityColor;
+    switch (yolo.anomalySeverity) {
+      case 'critical':
+        severityColor = Colors.redAccent;
+      case 'moderate':
+        severityColor = Colors.orangeAccent;
+      case 'mild':
+        severityColor = Colors.yellowAccent;
+      default:
+        severityColor = Colors.greenAccent.shade400;
+    }
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Icon(Icons.psychology_outlined, color: _accent, size: 18),
+              const SizedBox(width: 8),
+              Text('YOLO Detection + OCR Analysis',
+                  style: AppText.label.copyWith(color: _accent)),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Severity Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: severityColor.withAlpha(25),
+              borderRadius: BorderRadius.circular(AppRadius.xxl),
+              border: Border.all(color: severityColor.withAlpha(80)),
+            ),
+            child: Text(
+              yolo.anomalySeverity.toUpperCase(),
+              style: AppText.headingMd.copyWith(color: severityColor),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // YOLO Detection Info
+          Text('Anomaly Score: ${(yolo.anomalyScore * 100).toStringAsFixed(1)}%',
+              style: AppText.caption.copyWith(color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadius.xxl),
+            child: LinearProgressIndicator(
+              value: yolo.anomalyScore.clamp(0.0, 1.0),
+              minHeight: 8,
+              backgroundColor: AppColors.border,
+              valueColor: AlwaysStoppedAnimation(_accent),
+            ),
+          ),
+
+          if (yolo.detections.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            const _Divider(),
+            const SizedBox(height: 12),
+            Text('Detections (${yolo.detections.length})',
+                style: AppText.caption.copyWith(color: AppColors.textMuted)),
+            const SizedBox(height: 8),
+            ...yolo.getSortedByConfidence().take(5).map((det) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: _ScoreRow(
+                  label: det.className,
+                  value: det.confidence,
+                ),
+              );
+            }),
+            if (yolo.detections.length > 5)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  '+${yolo.detections.length - 5} more',
+                  style: AppText.caption
+                      .copyWith(color: AppColors.textMuted),
+                ),
+              ),
+          ],
+
+          // OCR Results
+          if (ocr != null && ocr.charactersCount > 0) ...[
+            const SizedBox(height: 16),
+            const _Divider(),
+            const SizedBox(height: 12),
+            Text('Document Recognition',
+                style: AppText.caption.copyWith(color: AppColors.textMuted)),
+            const SizedBox(height: 8),
+            Text('Characters: ${ocr.charactersCount}',
+                style: AppText.caption
+                    .copyWith(color: AppColors.textSecondary)),
+            const SizedBox(height: 4),
+            Text('OCR Confidence: ${(ocr.confidence * 100).toStringAsFixed(1)}%',
+                style: AppText.caption
+                    .copyWith(color: AppColors.textSecondary)),
+            if (ocr.keywordsDetected.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('Medical Keywords:',
+                  style: AppText.caption.copyWith(color: AppColors.textMuted)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: ocr.keywordsDetected.take(4).map((kw) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _accent.withAlpha(15),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(
+                          color: _accent.withAlpha(50), width: 0.5),
+                    ),
+                    child: Text(kw,
+                        style: AppText.caption
+                            .copyWith(color: _accent, fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                  );
+                }).toList(),
+              ),
+            ],
+          ],
+
+          // Processing Info
+          const SizedBox(height: 16),
+          const _Divider(),
+          const SizedBox(height: 12),
+          Text(
+            'Processing time: ${yolo.processingTimeMs}ms',
+            style: AppText.caption
+                .copyWith(color: AppColors.textMuted, fontSize: 10),
+          ),
+
+          if (_imageUrl != null) ...[
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              child: Image.network(_imageUrl!,
+                  height: 160, width: double.infinity, fit: BoxFit.cover),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   // ── Build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
@@ -356,7 +537,10 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
                         if (_errorMsg != null)
                           _ErrorCard(message: _errorMsg!),
                         _buildStatusRow(),
-                        if (_result != null) ...[
+                        if (_combinedResult != null) ...[
+                          const SizedBox(height: 8),
+                          _buildCombinedResultCard(_combinedResult!),
+                        ] else if (_result != null) ...[
                           const SizedBox(height: 8),
                           _buildResultCard(_result!),
                         ],
