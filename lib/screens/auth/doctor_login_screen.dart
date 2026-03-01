@@ -4,7 +4,7 @@ import '../../theme/app_theme.dart';
 import '../../services/firebase_auth_service.dart';
 import '../../services/firebase_db_service.dart';
 import 'doctor_signup_screen.dart';
-import '../home/doctor_home_screen.dart';
+import '../dashboards/dashboards.dart';
 
 class DoctorLoginScreen extends StatefulWidget {
   const DoctorLoginScreen({super.key});
@@ -69,7 +69,7 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen>
         setState(() => _loading = false);
         return;
       }
-      nav.pushReplacement(_fadeRoute(const DoctorHomeScreen()));
+      nav.pushReplacement(_fadeRoute(const DoctorDashboard()));
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
@@ -110,6 +110,7 @@ class _DoctorLoginScreenState extends State<DoctorLoginScreen>
                   Text('Sign in to your clinical account to access your\npatient dashboard.', style: AppText.bodyLg),
                   const SizedBox(height: 36),
                   AppCard(
+                    glassmorphic: true,
                     child: Column(
                       children: [
                         AppTextField(label: 'EMAIL ADDRESS', controller: _email, hint: 'doctor@hospital.com', icon: Icons.email_outlined, accent: _accent, keyboardType: TextInputType.emailAddress),

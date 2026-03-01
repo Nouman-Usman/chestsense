@@ -4,7 +4,7 @@ import '../../theme/app_theme.dart';
 import '../../services/firebase_auth_service.dart';
 import '../../services/firebase_db_service.dart';
 import 'patient_signup_screen.dart';
-import '../home/patient_home_screen.dart';
+import '../dashboards/dashboards.dart';
 
 class PatientLoginScreen extends StatefulWidget {
   const PatientLoginScreen({super.key});
@@ -69,7 +69,7 @@ class _PatientLoginScreenState extends State<PatientLoginScreen>
         setState(() => _loading = false);
         return;
       }
-      nav.pushReplacement(_fadeRoute(const PatientHomeScreen()));
+      nav.pushReplacement(_fadeRoute(const PatientDashboard()));
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(
@@ -118,6 +118,7 @@ class _PatientLoginScreenState extends State<PatientLoginScreen>
                   ),
                   const SizedBox(height: 36),
                   AppCard(
+                    glassmorphic: true,
                     child: Column(
                       children: [
                         AppTextField(

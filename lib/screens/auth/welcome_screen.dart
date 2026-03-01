@@ -134,7 +134,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         children: [
                           Text(
                             'Advanced\nCardiac Care.',
-                            style: AppText.displayLg.copyWith(fontSize: 42),
+                            style: AppText.displayLg.copyWith(fontSize: 42, letterSpacing: -0.5),
                           ),
                           const SizedBox(height: 16),
                           Text(
@@ -187,18 +187,32 @@ class _FeatureChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: AppColors.border),
+        color: AppColors.surface.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(
+          color: AppColors.doctorPrimary.withValues(alpha: 0.25),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.doctorPrimary.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: AppColors.doctorPrimary),
-          const SizedBox(width: 7),
-          Text(label, style: AppText.caption.copyWith(color: AppColors.textSecondary)),
+          Icon(icon, size: 14, color: AppColors.doctorPrimary),
+          const SizedBox(width: 8),
+          Text(label, 
+            style: AppText.caption.copyWith(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+            )),
         ],
       ),
     );

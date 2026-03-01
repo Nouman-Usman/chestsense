@@ -163,6 +163,7 @@ class _DoctorSignupScreenState extends State<DoctorSignupScreen>
                     child: _step == 0
                         ? AppCard(
                             key: const ValueKey('step0'),
+                            glassmorphic: true,
                             child: Column(children: [
                               AppTextField(label: 'FULL NAME', controller: _name, hint: 'Dr. Jane Smith', icon: Icons.person_outline_rounded, accent: _accent),
                               const SizedBox(height: 20),
@@ -173,6 +174,7 @@ class _DoctorSignupScreenState extends State<DoctorSignupScreen>
                           )
                         : AppCard(
                             key: const ValueKey('step1'),
+                            glassmorphic: true,
                             child: Column(children: [
                               AppTextField(label: 'EMAIL ADDRESS', controller: _email, hint: 'doctor@hospital.com', icon: Icons.email_outlined, accent: _accent, keyboardType: TextInputType.emailAddress),
                               const SizedBox(height: 20),

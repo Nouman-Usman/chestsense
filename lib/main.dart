@@ -7,8 +7,6 @@ import 'theme/app_theme.dart';
 import 'screens/auth/auth_gate.dart';
 import 'services/firebase_auth_service.dart';
 import 'services/firebase_db_service.dart';
-import 'services/storage_service.dart';
-import 'services/ml_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,10 +15,6 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  // Initialize ML Services (YOLO & Doctr)
-  final mlService = MLService();
-  await mlService.initialize();
   
   SystemChrome.setSystemUIOverlayStyle(AppTheme.systemBarDark);
   SystemChrome.setPreferredOrientations([
@@ -37,23 +31,17 @@ class ChestSenseApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // Initialize auth service immediately (lazy: false) to ensure session is loaded
         Provider<FirebaseAuthService>(
           create: (_) => FirebaseAuthService(),
           lazy: false,
         ),
         Provider<FirebaseDbService>(
           create: (_) => FirebaseDbService(),
-        ),
-        Provider<StorageService>(
-          create: (_) => StorageService(),
-        ),
-        Provider<MLService>(
-          create: (_) => MLService(),
+          lazy: false,
         ),
       ],
       child: MaterialApp(
-        title: 'ChestSense',
+        title: 'Medical Image Analyzer',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.dark,
         home: const AuthGate(),

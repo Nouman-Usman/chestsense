@@ -5,8 +5,7 @@ import '../../services/firebase_auth_service.dart';
 import '../../services/firebase_db_service.dart';
 import 'patient_signup_screen.dart';
 import 'doctor_signup_screen.dart';
-import '../home/patient_home_screen.dart';
-import '../home/doctor_home_screen.dart';
+import '../dashboards/dashboards.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -73,22 +72,12 @@ class _LoginScreenState extends State<LoginScreen>
         return;
       }
 
-      // Redirect based on role
-      Widget homeScreen;
+      // Role-based routing
       if (role == 'doctor') {
-        homeScreen = const DoctorHomeScreen();
-      } else if (role == 'patient') {
-        homeScreen = const PatientHomeScreen();
+        nav.pushReplacement(_fadeRoute(const DoctorDashboard()));
       } else {
-        await auth.signOut();
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Invalid user role.')),
-        );
-        setState(() => _loading = false);
-        return;
+        nav.pushReplacement(_fadeRoute(const PatientDashboard()));
       }
-
-      nav.pushReplacement(_fadeRoute(homeScreen));
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(

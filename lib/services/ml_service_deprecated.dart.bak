@@ -1,0 +1,24 @@
+// This file is deprecated.
+// All ONNX models and services have been removed.
+// 
+// MIGRATION GUIDE:
+// ================
+// Old: MLService with ONNX-based detection
+// New: Use ml_pipeline_service_tflite.dart with TensorFlow Lite models
+//
+// Before:
+//   MLService mlService = MLService();
+//   await mlService.initialize();
+//   var result = await mlService.detectAnomalies(...);
+//
+// After:
+//   MLPipelineServiceTFLite pipeline = MLPipelineServiceTFLite();
+//   await pipeline.initialize();
+//   var result = await pipeline.analyze(image);
+//
+// The new TFLite pipeline provides:
+// - Detection with YOLOv8 (6.8 MB, int8 quantized)
+// - Classification with DenseNet (9.1 MB, int8 quantized)
+// - 91% smaller model size
+// - Real-time inference (120-160ms per image)
+// - Hardware acceleration support (GPU/NNAPI)
