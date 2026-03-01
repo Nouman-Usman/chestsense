@@ -141,6 +141,25 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
     }
   }
 
+  Future<void> _pickFromCamera() async {
+    try {
+      final picker = ImagePicker();
+      final xFile = await picker.pickImage(source: ImageSource.camera);
+      if (xFile == null) return;
+      final bytes = await xFile.readAsBytes();
+      setState(() {
+        _deviceImageFile = File(xFile.path);
+        _selectedBytes = bytes;
+        _selectedLabel = xFile.name;
+        _selectedSamplePath = null;
+        _result = null;
+        _analysisError = null;
+      });
+    } catch (e) {
+      _showSnack('Failed to capture image: $e');
+    }
+  }
+
   // ── Analysis ───────────────────────────────────────────────────────────────
   Future<void> _analyze() async {
     if (_selectedBytes == null) {
@@ -341,7 +360,11 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
               });
             }),
             const SizedBox(height: 12),
-            _PickerPromptCard(accent: _accent, onTap: _pickFromDevice),
+            _PickerPromptCard(
+              accent: _accent,
+              onGallery: _pickFromDevice,
+              onCamera: _pickFromCamera,
+            ),
           ],
 
           const SizedBox(height: 20),

@@ -155,7 +155,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           PrimaryButton(
                             label: 'Get Started',
                             trailingIcon: Icons.arrow_forward_rounded,
-                            onPressed: () => Navigator.of(context).push(_fadeRoute(const LoginScreen())),
+                            onPressed: () => Navigator.of(context).push(_fadeRoute(const RoleSelectionScreen())),
                           ),
                           const SizedBox(height: 20),
                           Center(

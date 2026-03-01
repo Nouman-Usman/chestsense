@@ -299,104 +299,144 @@ class _PatientDashboardState extends State<PatientDashboard>
 
   // ── Analyze Hero ───────────────────────────────────────────────────────────
   Widget _buildAnalyzeHero() {
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => CTScanAnalysisScreen(
-            userRole: 'patient',
-            displayName: _displayName,
-          ),
-        ),
-      ),
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFF0B2C2A),
-              Color(0xFF0A1F2E),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(AppRadius.xxl),
-          border: Border.all(
-              color: _accent.withValues(alpha: 0.35), width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: _accent.withValues(alpha: 0.18),
-              blurRadius: 28,
-              offset: const Offset(0, 12),
-            ),
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFF0B2C2A),
+            Color(0xFF0A1F2E),
           ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Row(
-            children: [
-              // Icon section
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: _accent.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                      color: _accent.withValues(alpha: 0.3)),
+        borderRadius: BorderRadius.circular(AppRadius.xxl),
+        border:
+            Border.all(color: _accent.withValues(alpha: 0.35), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: _accent.withValues(alpha: 0.18),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Icon
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: _accent.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                        color: _accent.withValues(alpha: 0.3)),
+                  ),
+                  child: const Icon(Icons.biotech_rounded,
+                      size: 32, color: _accent),
                 ),
-                child: const Icon(Icons.biotech_rounded,
-                    size: 32, color: _accent),
-              ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: _accent.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(4),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: _accent.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text('AI-POWERED',
+                            style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: _accentLight,
+                                letterSpacing: 1.5)),
                       ),
-                      child: const Text('AI-POWERED',
-                          style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: _accentLight,
-                              letterSpacing: 1.5)),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text('New CT-SCAN\nAnalysis',
+                      const SizedBox(height: 8),
+                      const Text(
+                        'AI Powered Chest\nCancer Detection',
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: 19,
                           fontWeight: FontWeight.w700,
                           color: AppColors.textPrimary,
-                          height: 1.2,
-                        )),
-                    const SizedBox(height: 6),
-                    const Text(
-                        'Upload or use sample CT scans for instant AI analysis',
+                          height: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      const Text(
+                        'Upload a chest X-ray for instant\nAI-powered cancer screening',
                         style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11,
                             color: AppColors.textMuted,
-                            height: 1.4)),
+                            height: 1.4),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // Start Scan button
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CTScanAnalysisScreen(
+                    userRole: 'patient',
+                    displayName: _displayName,
+                  ),
+                ),
+              ),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_accent, _accentLight],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  borderRadius: BorderRadius.circular(AppRadius.lg),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _accent.withValues(alpha: 0.35),
+                      blurRadius: 18,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.document_scanner_rounded,
+                        size: 18, color: Colors.white),
+                    SizedBox(width: 8),
+                    Text(
+                      'Start Scan',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    SizedBox(width: 6),
+                    Icon(Icons.arrow_forward_rounded,
+                        size: 15, color: Colors.white),
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: _accent.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.arrow_forward_rounded,
-                    size: 18, color: _accentLight),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
