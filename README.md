@@ -1,4 +1,4 @@
-# chestsense
+# ChestSense — CT-Scan Tumor Detection Platform
 
 A new Flutter project.
 
