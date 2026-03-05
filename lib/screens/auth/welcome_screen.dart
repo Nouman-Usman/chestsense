@@ -133,12 +133,12 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Advanced\nCardiac Care.',
+                            'Advanced\nTumor Detection.',
                             style: AppText.displayLg.copyWith(fontSize: 42, letterSpacing: -0.5),
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'A clinical-grade platform connecting\ncardiologists and patients through\nreal-time monitoring and diagnostics.',
+                            'A clinical-grade platform connecting\noncologists and patients through\nAI-powered CT scan analysis and diagnostics.',
                             style: AppText.bodyLg,
                           ),
                           const SizedBox(height: 32),
@@ -148,7 +148,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             children: const [
                               _FeatureChip(label: 'HIPAA Compliant', icon: Icons.verified_user_outlined),
                               _FeatureChip(label: 'End-to-End Encrypted', icon: Icons.lock_outline_rounded),
-                              _FeatureChip(label: 'Real-Time ECG', icon: Icons.monitor_heart_outlined),
+                              _FeatureChip(label: 'AI Tumor Detection', icon: Icons.biotech_outlined),
                             ],
                           ),
                           const SizedBox(height: 40),
@@ -160,7 +160,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           const SizedBox(height: 20),
                           Center(
                             child: Text(
-                              'Trusted by 2,400+ clinicians worldwide',
+                              'Trusted by 2,400+ oncologists worldwide',
                               style: AppText.caption,
                             ),
                           ),

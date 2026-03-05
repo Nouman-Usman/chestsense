@@ -5,7 +5,7 @@ import 'dart:io';
 import '../core/service_locator.dart';
 import '../core/service_interfaces.dart';
 import '../services/firebase_auth_service.dart';
-import 'shared/cancer_classification_card.dart';
+import 'shared/tumor_classification_card.dart';
 
 /// Clean minimalist medical image analyzer dashboard
 class AnalyzerDashboard extends StatefulWidget {
@@ -381,7 +381,7 @@ class _AnalyzerDashboardState extends State<AnalyzerDashboard> {
                     ),
               ),
               const SizedBox(height: 16),
-              ...result.tumors.map((tumor) => CancerClassificationCard(
+              ...result.tumors.map((tumor) => TumorClassificationCard(
                     tumorIndex: tumor.index,
                     classification: tumor.classification,
                     confidence: tumor.classificationConfidence,

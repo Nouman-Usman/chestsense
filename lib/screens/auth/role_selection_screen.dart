@@ -141,7 +141,7 @@ class _RoleSelectionScreenState extends State<RoleSelectionScreen>
                                 title: 'Patient',
                                 subtitle: 'Patient Portal',
                                 description:
-                                    'Upload chest X-rays, get AI-powered\ndiagnosis results and manage your health.',
+                                    'Upload CT scans, get AI-powered\ntumor detection and manage your health.',
                                 accent: AppColors.patientPrimary,
                                 glow: AppColors.patientGlow,
                                 featureLabel: 'END-TO-END ENCRYPTED',

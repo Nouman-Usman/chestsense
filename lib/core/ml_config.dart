@@ -95,7 +95,7 @@ class YOLOConfig {
 
   factory YOLOConfig.development() {
     return const YOLOConfig(
-      modelPath: 'assets/models/yolo_v8_int8.tflite',
+      modelPath: 'lib/ML/yolo/best_float16.tflite',
       inputWidth: 640,
       inputHeight: 640,
       confidenceThreshold: 0.25, // Relaxed for testing
@@ -108,7 +108,7 @@ class YOLOConfig {
 
   factory YOLOConfig.staging() {
     return const YOLOConfig(
-      modelPath: 'assets/models/yolo_v8_int8.tflite',
+      modelPath: 'lib/ML/yolo/best_float16.tflite',
       inputWidth: 640,
       inputHeight: 640,
       confidenceThreshold: 0.35,
@@ -121,7 +121,7 @@ class YOLOConfig {
 
   factory YOLOConfig.production() {
     return const YOLOConfig(
-      modelPath: 'assets/models/yolo_v8_int8.tflite',
+      modelPath: 'lib/ML/yolo/best_float16.tflite',
       inputWidth: 640,
       inputHeight: 640,
       confidenceThreshold: 0.4, // Higher threshold for production
@@ -172,7 +172,7 @@ class DenseNetConfig {
 
   factory DenseNetConfig.development() {
     return const DenseNetConfig(
-      modelPath: 'assets/models/densenet_int8.tflite',
+      modelPath: 'lib/ML/detection/densenet_model.tflite',
       inputWidth: 224,
       inputHeight: 224,
       numClasses: 4,
@@ -190,7 +190,7 @@ class DenseNetConfig {
 
   factory DenseNetConfig.staging() {
     return const DenseNetConfig(
-      modelPath: 'assets/models/densenet_int8.tflite',
+      modelPath: 'lib/ML/detection/densenet_model.tflite',
       inputWidth: 224,
       inputHeight: 224,
       numClasses: 4,
@@ -208,7 +208,7 @@ class DenseNetConfig {
 
   factory DenseNetConfig.production() {
     return const DenseNetConfig(
-      modelPath: 'assets/models/densenet_int8.tflite',
+      modelPath: 'lib/ML/detection/densenet_model.tflite',
       inputWidth: 224,
       inputHeight: 224,
       numClasses: 4,

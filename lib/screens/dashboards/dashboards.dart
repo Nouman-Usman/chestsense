@@ -6,6 +6,7 @@ import '../../services/firebase_db_service.dart';
 import '../../theme/app_theme.dart';
 import '../scan/ct_scan_analysis_screen.dart';
 import '../shared/profile_screen.dart';
+import '../auth/welcome_screen.dart';
 
 // ─────────────────────────── PATIENT DASHBOARD ────────────────────────────────
 
@@ -69,8 +70,45 @@ class _PatientDashboardState extends State<PatientDashboard>
   }
 
   Future<void> _signOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceAlt,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Sign Out',
+            style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
+        content: const Text('Are you sure you want to sign out?',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text('Sign Out',
+                style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     final auth = context.read<FirebaseAuthService>();
     await auth.signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      PageRouteBuilder(
+        pageBuilder: (_, a1, a2) => const WelcomeScreen(),
+        transitionDuration: const Duration(milliseconds: 400),
+        transitionsBuilder: (_, anim, a2, child) => FadeTransition(
+          opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+          child: child,
+        ),
+      ),
+      (route) => false,
+    );
   }
 
   String get _displayName =>
@@ -197,31 +235,31 @@ class _PatientDashboardState extends State<PatientDashboard>
                               ],
                             ),
                           ),
-                          // Menu
-                          PopupMenuButton<String>(
-                            color: AppColors.surfaceAlt,
-                            icon: const Icon(Icons.more_vert_rounded,
-                                size: 20, color: AppColors.textSecondary),
-                            onSelected: (v) {
-                              if (v == 'signout') _signOut();
-                            },
-                            itemBuilder: (_) => [
-                              const PopupMenuItem(
-                                value: 'signout',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.logout_rounded,
-                                        size: 16,
-                                        color: AppColors.textSecondary),
-                                    SizedBox(width: 8),
-                                    Text('Sign Out',
-                                        style: TextStyle(
-                                            color: AppColors.textSecondary,
-                                            fontSize: 13)),
-                                  ],
-                                ),
+                          // Sign out button
+                          GestureDetector(
+                            onTap: _signOut,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                    color: Colors.redAccent.withValues(alpha: 0.3)),
                               ),
-                            ],
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.logout_rounded,
+                                      size: 14, color: Colors.redAccent),
+                                  SizedBox(width: 5),
+                                  Text('Sign Out',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.redAccent)),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -329,7 +367,7 @@ class _PatientDashboardState extends State<PatientDashboard>
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'AI Powered Chest\nCancer Detection',
+                        'AI Powered Tumor\nDetection',
                         style: TextStyle(
                           fontSize: 19,
                           fontWeight: FontWeight.w700,
@@ -339,7 +377,7 @@ class _PatientDashboardState extends State<PatientDashboard>
                       ),
                       const SizedBox(height: 5),
                       const Text(
-                        'Upload a chest X-ray for instant\nAI-powered cancer screening',
+                        'Upload a CT scan for instant\nAI-powered tumor detection',
                         style: TextStyle(
                             fontSize: 11,
                             color: AppColors.textMuted,
@@ -529,8 +567,45 @@ class _DoctorDashboardState extends State<DoctorDashboard>
   }
 
   Future<void> _signOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceAlt,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Sign Out',
+            style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w700)),
+        content: const Text('Are you sure you want to sign out?',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text('Sign Out',
+                style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     final auth = context.read<FirebaseAuthService>();
     await auth.signOut();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      PageRouteBuilder(
+        pageBuilder: (_, a1, a2) => const WelcomeScreen(),
+        transitionDuration: const Duration(milliseconds: 400),
+        transitionsBuilder: (_, anim, a2, child) => FadeTransition(
+          opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+          child: child,
+        ),
+      ),
+      (route) => false,
+    );
   }
 
   String get _displayName =>
@@ -690,31 +765,31 @@ class _DoctorDashboardState extends State<DoctorDashboard>
                               ],
                             ),
                           ),
-                          PopupMenuButton<String>(
-                            color: AppColors.surfaceAlt,
-                            icon: const Icon(Icons.more_vert_rounded,
-                                size: 20,
-                                color: AppColors.textSecondary),
-                            onSelected: (v) {
-                              if (v == 'signout') _signOut();
-                            },
-                            itemBuilder: (_) => [
-                              const PopupMenuItem(
-                                value: 'signout',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.logout_rounded,
-                                        size: 16,
-                                        color: AppColors.textSecondary),
-                                    SizedBox(width: 8),
-                                    Text('Sign Out',
-                                        style: TextStyle(
-                                            color: AppColors.textSecondary,
-                                            fontSize: 13)),
-                                  ],
-                                ),
+                          // Sign out button
+                          GestureDetector(
+                            onTap: _signOut,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                    color: Colors.redAccent.withValues(alpha: 0.3)),
                               ),
-                            ],
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.logout_rounded,
+                                      size: 14, color: Colors.redAccent),
+                                  SizedBox(width: 5),
+                                  Text('Sign Out',
+                                      style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.redAccent)),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),

@@ -743,7 +743,7 @@ class _PickerPromptCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Tap to select chest X-ray',
+                    'Tap to select CT scan',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,

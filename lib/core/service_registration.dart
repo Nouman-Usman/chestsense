@@ -42,7 +42,7 @@ void registerServices() {
       type: IClassificationService,
       name: 'DenseNet Classification Service',
       version: '1.0.0',
-      description: 'DenseNet121 cancer classification using TFLite',
+      description: 'DenseNet121 tumor classification using TFLite',
       scopeType: ServiceScopeType.singleton,
       tags: ['ml', 'classification', 'densenet', 'tflite'],
       dependencies: [], // GradCAM service is created internally
