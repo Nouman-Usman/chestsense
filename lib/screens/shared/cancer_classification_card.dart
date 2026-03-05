@@ -23,7 +23,7 @@ class CancerClassificationCard extends StatefulWidget {
     required this.detectionConfidence,
     this.heatmapImage,
     this.originalRegion,
-  }) : super(key: key);
+  });
 
   @override
   State<CancerClassificationCard> createState() =>

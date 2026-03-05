@@ -18,7 +18,7 @@ class GradCAMHeatmapOverlay extends StatefulWidget {
     required this.heatmapImage,
     this.opacity = 0.6,
     this.blendMode = BlendMode.srcOver,
-  }) : super(key: key);
+  });
 
   @override
   State<GradCAMHeatmapOverlay> createState() => _GradCAMHeatmapOverlayState();
@@ -191,7 +191,7 @@ class GradCAMVisualizationCard extends StatefulWidget {
     required this.heatmapImage,
     required this.classification,
     required this.confidence,
-  }) : super(key: key);
+  });
 
   @override
   State<GradCAMVisualizationCard> createState() =>
