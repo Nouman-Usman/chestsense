@@ -1,1 +1,28 @@
+# Git LFS Configuration
+# All model files and large binary files should be tracked with Git LFS
+# TensorFlow Lite Models (.tflite)
+*.tflite filter=lfs diff=lfs merge=lfs -text
+# PyTorch Models (.pt, .pth)
+*.pt filter=lfs diff=lfs merge=lfs -text
+*.pth filter=lfs diff=lfs merge=lfs -text
+# ONNX Models (.onnx)
+*.onnx filter=lfs diff=lfs merge=lfs -text
+# Large video files
+*.mp4 filter=lfs diff=lfs merge=lfs -text
+*.mov filter=lfs diff=lfs merge=lfs -text
+*.avi filter=lfs diff=lfs merge=lfs -text
+# Large image files
+*.png filter=lfs diff=lfs merge=lfs -text
+*.jpg filter=lfs diff=lfs merge=lfs -text
+*.jpeg filter=lfs diff=lfs merge=lfs -text
+# Zip archives
+*.zip filter=lfs diff=lfs merge=lfs -text
+# Compiled binaries
+*.o filter=lfs diff=lfs merge=lfs -text
+*.a filter=lfs diff=lfs merge=lfs -text
+*.so filter=lfs diff=lfs merge=lfs -text
 lib/ML/yolo/best.pt filter=lfs diff=lfs merge=lfs -text
+assets/models/*.tflite filter=lfs diff=lfs merge=lfs -text
+lib/ML/detection/*.tflite filter=lfs diff=lfs merge=lfs -text
+lib/ML/yolo/*.tflite filter=lfs diff=lfs merge=lfs -text
+test-images/*.png filter=lfs diff=lfs merge=lfs -text
