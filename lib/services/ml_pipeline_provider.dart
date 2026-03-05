@@ -1,12 +1,14 @@
 /// Provider-based ML Pipeline management
 /// Use with `provider` package for reactive state management
+library;
 
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
-import 'ml_pipeline_service_tflite.dart';
+import '../core/service_locator.dart';
+import '../core/service_interfaces.dart';
 
 class MLPipelineProvider extends ChangeNotifier {
-  late final MLPipelineServiceTFLite _pipeline;
+  late final IMLPipelineService _pipeline;
   
   // State properties
   bool _isInitialized = false;
@@ -21,7 +23,8 @@ class MLPipelineProvider extends ChangeNotifier {
   TumorAnalysisResult? get lastResult => _lastResult;
   
   MLPipelineProvider() {
-    _pipeline = MLPipelineServiceTFLite();
+    // Get pipeline from service locator
+    _pipeline = getService<IMLPipelineService>();
   }
   
   /// Initialize the ML pipeline
@@ -76,20 +79,31 @@ class MLPipelineProvider extends ChangeNotifier {
       return {};
     }
     
-    final malignantCount = _lastResult!.tumors
-        .where((t) => t.classification.toLowerCase() == 'malignant')
-        .length;
+    // Group by classification type
+    final classificationCounts = <String, int>{};
+    for (final tumor in _lastResult!.tumors) {
+      final key = tumor.classification;
+      classificationCounts[key] = (classificationCounts[key] ?? 0) + 1;
+    }
     
-    final avgDetectionConfidence = _lastResult!.tumors
-        .fold<double>(0, (sum, t) => sum + t.detectionConfidence) /
-        (_lastResult!.tumors.isNotEmpty ? _lastResult!.tumors.length : 1);
+    final avgDetectionConfidence = _lastResult!.tumors.isNotEmpty
+        ? _lastResult!.tumors
+            .fold<double>(0, (sum, t) => sum + t.detectionConfidence) /
+            _lastResult!.tumors.length
+        : 0.0;
+    
+    final avgClassificationConfidence = _lastResult!.tumors.isNotEmpty
+        ? _lastResult!.tumors
+            .fold<double>(0, (sum, t) => sum + t.classificationConfidence) /
+            _lastResult!.tumors.length
+        : 0.0;
     
     return {
       'totalDetected': _lastResult!.totalDetected,
-      'malignant': malignantCount,
-      'benign': _lastResult!.totalDetected - malignantCount,
+      'classificationCounts': classificationCounts,
       'processingTimeMs': _lastResult!.processingTimeMs,
       'avgDetectionConfidence': avgDetectionConfidence,
+      'avgClassificationConfidence': avgClassificationConfidence,
     };
   }
   

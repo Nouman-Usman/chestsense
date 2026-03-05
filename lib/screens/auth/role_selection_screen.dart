@@ -271,8 +271,11 @@ class _PortalCardState extends State<_PortalCard> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        transform: Matrix4.identity()
-          ..scale(_pressed ? 0.97 : 1.0),
+        transform: Matrix4.diagonal3Values(
+          _pressed ? 0.97 : 1.0,
+          _pressed ? 0.97 : 1.0,
+          1.0,
+        ),
         transformAlignment: Alignment.center,
         padding: const EdgeInsets.all(22),
         decoration: BoxDecoration(

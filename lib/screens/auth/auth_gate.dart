@@ -144,9 +144,9 @@ class _RoleRouterState extends State<_RoleRouter> {
           : const PatientDashboard();
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
-          pageBuilder: (_, __, ___) => dest,
-          transitionsBuilder: (_, anim, __, child) =>
-              FadeTransition(opacity: anim, child: child),
+          pageBuilder: (context, animation, secondaryAnimation) => dest,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+              FadeTransition(opacity: animation, child: child),
           transitionDuration: const Duration(milliseconds: 400),
         ),
       );

@@ -74,9 +74,11 @@ flutter:
 
   # ML Model Assets (TensorFlow Lite)
   assets:
-    # Production TFLite models (real trained models)
+    # Production TFLite models (web platform uses these)
     - assets/models/yolo_best_int8.tflite
-    - assets/models/densenet_final.tflite
+    # Active models used by native platform
+    - lib/ML/yolo/best_float16.tflite
+    - lib/ML/detection/densenet_model.tflite
     - test-images/
 
   # To add custom fonts to your application, add a fonts section here,

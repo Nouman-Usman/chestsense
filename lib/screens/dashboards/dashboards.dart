@@ -5,6 +5,7 @@ import '../../services/firebase_auth_service.dart';
 import '../../services/firebase_db_service.dart';
 import '../../theme/app_theme.dart';
 import '../scan/ct_scan_analysis_screen.dart';
+import '../shared/profile_screen.dart';
 
 // ─────────────────────────── PATIENT DASHBOARD ────────────────────────────────
 
@@ -94,14 +95,10 @@ class _PatientDashboardState extends State<PatientDashboard>
                           horizontal: AppSpacing.md),
                       child: Column(
                         children: [
-                          const SizedBox(height: 24),
-                          _buildStatsRow(),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 40),
                           _buildAnalyzeHero(),
-                          const SizedBox(height: 28),
-                          _buildHealthTips(),
-                          const SizedBox(height: 28),
-                          _buildRecentScans(),
+                          const SizedBox(height: 24),
+                          _buildProfileCard(),
                           const SizedBox(height: 40),
                         ],
                       ),
@@ -266,37 +263,6 @@ class _PatientDashboardState extends State<PatientDashboard>
     );
   }
 
-  // ── Stats Row ──────────────────────────────────────────────────────────────
-  Widget _buildStatsRow() {
-    return Row(
-      children: [
-        Expanded(
-            child: _MiniStatCard(
-          label: 'Total Scans',
-          value: '0',
-          icon: Icons.document_scanner_outlined,
-          accent: _accent,
-        )),
-        const SizedBox(width: 10),
-        Expanded(
-            child: _MiniStatCard(
-          label: 'This Month',
-          value: '0',
-          icon: Icons.calendar_today_outlined,
-          accent: _accentLight,
-        )),
-        const SizedBox(width: 10),
-        Expanded(
-            child: _MiniStatCard(
-          label: 'Status',
-          value: 'OK',
-          icon: Icons.favorite_outline_rounded,
-          accent: AppColors.success,
-        )),
-      ],
-    );
-  }
-
   // ── Analyze Hero ───────────────────────────────────────────────────────────
   Widget _buildAnalyzeHero() {
     return Container(
@@ -442,53 +408,67 @@ class _PatientDashboardState extends State<PatientDashboard>
     );
   }
 
-  // ── Health Tips ────────────────────────────────────────────────────────────
-  Widget _buildHealthTips() {
-    final tips = [
-      (Icons.air_rounded, 'Lung Health',
-          'Regular screening can catch nodules early, improving outcomes.'),
-      (Icons.health_and_safety_outlined, 'When to Scan',
-          'Low-dose CT is recommended for high-risk adults aged 50–80.'),
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionHeader(title: 'Health Insights', accent: _accent),
-        const SizedBox(height: 12),
-        ...tips.map((t) => Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _InfoTile(
-                icon: t.$1,
-                title: t.$2,
-                body: t.$3,
-                accent: _accent,
+  // ── Profile Card ───────────────────────────────────────────────────────────
+  Widget _buildProfileCard() {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ProfileScreen()),
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _accent.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
               ),
-            )),
-      ],
-    );
-  }
-
-  // ── Recent Scans ───────────────────────────────────────────────────────────
-  Widget _buildRecentScans() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionHeader(title: 'Recent Scans', accent: _accent),
-        const SizedBox(height: 12),
-        _EmptyHistoryCard(
-          accent: _accent,
-          message: 'No scans yet. Run your first CT-SCAN analysis.',
-          onAction: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => CTScanAnalysisScreen(
-                userRole: 'patient',
-                displayName: _displayName,
+              child: const Icon(
+                Icons.person_outline_rounded,
+                color: _accent,
+                size: 24,
               ),
             ),
-          ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'My Profile',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'View and edit your profile',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: Colors.grey.shade400,
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -574,14 +554,10 @@ class _DoctorDashboardState extends State<DoctorDashboard>
                           horizontal: AppSpacing.md),
                       child: Column(
                         children: [
-                          const SizedBox(height: 24),
-                          _buildStatsGrid(),
-                          const SizedBox(height: 28),
-                          _buildQuickActions(),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 40),
                           _buildAnalyzeHero(),
-                          const SizedBox(height: 28),
-                          _buildRecentAnalyses(),
+                          const SizedBox(height: 24),
+                          _buildProfileCard(),
                           const SizedBox(height: 40),
                         ],
                       ),
@@ -779,89 +755,6 @@ class _DoctorDashboardState extends State<DoctorDashboard>
     );
   }
 
-  // ── Stats Grid ─────────────────────────────────────────────────────────────
-  Widget _buildStatsGrid() {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
-      childAspectRatio: 1.8,
-      children: const [
-        _StatCard(
-          label: 'Total Analyses',
-          value: '0',
-          icon: Icons.analytics_outlined,
-          accent: _accent,
-          trend: null,
-        ),
-        _StatCard(
-          label: 'This Month',
-          value: '0',
-          icon: Icons.calendar_month_outlined,
-          accent: _accentLight,
-          trend: null,
-        ),
-        _StatCard(
-          label: 'Malignant Found',
-          value: '0',
-          icon: Icons.warning_amber_outlined,
-          accent: AppColors.error,
-          trend: null,
-        ),
-        _StatCard(
-          label: 'Benign Found',
-          value: '0',
-          icon: Icons.check_circle_outline_rounded,
-          accent: AppColors.success,
-          trend: null,
-        ),
-      ],
-    );
-  }
-
-  // ── Quick Actions ──────────────────────────────────────────────────────────
-  Widget _buildQuickActions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionHeader(title: 'Quick Actions', accent: _accent),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _QuickAction(
-                icon: Icons.biotech_rounded,
-                label: 'New Analysis',
-                accent: _accent,
-                onTap: () => _openAnalysis(),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _QuickAction(
-                icon: Icons.folder_open_outlined,
-                label: 'LIDC-IDRI',
-                accent: AppColors.textMuted,
-                onTap: () => _openAnalysis(),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _QuickAction(
-                icon: Icons.bar_chart_rounded,
-                label: 'Reports',
-                accent: AppColors.textMuted,
-                onTap: () {},
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
   void _openAnalysis() {
     Navigator.push(
       context,
@@ -970,20 +863,67 @@ class _DoctorDashboardState extends State<DoctorDashboard>
     );
   }
 
-  // ── Recent Analyses ────────────────────────────────────────────────────────
-  Widget _buildRecentAnalyses() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionHeader(title: 'Recent Analyses', accent: _accent),
-        const SizedBox(height: 12),
-        _EmptyHistoryCard(
-          accent: _accent,
-          message:
-              'No analyses yet. Start a new CT-SCAN analysis to begin.',
-          onAction: _openAnalysis,
+  // ── Profile Card ───────────────────────────────────────────────────────────
+  Widget _buildProfileCard() {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ProfileScreen()),
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          border: Border.all(color: AppColors.border),
         ),
-      ],
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _accent.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.person_outline_rounded,
+                color: _accent,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'My Profile',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'View and edit your profile',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios_rounded,
+              size: 16,
+              color: Colors.grey.shade400,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1008,319 +948,6 @@ class _LoadingBody extends StatelessWidget {
           const Text('Loading your dashboard…',
               style: TextStyle(
                   fontSize: 13, color: AppColors.textMuted)),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  final Color accent;
-  const _SectionHeader({required this.title, required this.accent});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 3,
-          height: 16,
-          decoration: BoxDecoration(
-            color: accent,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MiniStatCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color accent;
-
-  const _MiniStatCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 16, color: accent),
-          const SizedBox(height: 8),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: accent)),
-          const SizedBox(height: 3),
-          Text(label,
-              style: const TextStyle(
-                  fontSize: 9,
-                  color: AppColors.textMuted,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.3)),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color accent;
-  final String? trend;
-
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.accent,
-    this.trend,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: accent.withValues(alpha: 0.15)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, size: 16, color: accent),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(value,
-                    style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                        color: accent)),
-                const SizedBox(height: 2),
-                Text(label,
-                    style: const TextStyle(
-                        fontSize: 10,
-                        color: AppColors.textMuted,
-                        fontWeight: FontWeight.w500),
-                    overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _QuickAction extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color accent;
-  final VoidCallback onTap;
-
-  const _QuickAction({
-    required this.icon,
-    required this.label,
-    required this.accent,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(AppRadius.lg),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadius.lg),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(9),
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 18, color: accent),
-              ),
-              const SizedBox(height: 8),
-              Text(label,
-                  style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary),
-                  textAlign: TextAlign.center),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String body;
-  final Color accent;
-
-  const _InfoTile({
-    required this.icon,
-    required this.title,
-    required this.body,
-    required this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, size: 16, color: accent),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary)),
-                const SizedBox(height: 4),
-                Text(body,
-                    style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textMuted,
-                        height: 1.4)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyHistoryCard extends StatelessWidget {
-  final Color accent;
-  final String message;
-  final VoidCallback onAction;
-
-  const _EmptyHistoryCard({
-    required this.accent,
-    required this.message,
-    required this.onAction,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-        border: Border.all(
-            color: AppColors.border,
-            style: BorderStyle.solid),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: accent.withValues(alpha: 0.08),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.history_rounded,
-                size: 28, color: accent.withValues(alpha: 0.5)),
-          ),
-          const SizedBox(height: 14),
-          Text(message,
-              style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textMuted,
-                  height: 1.4),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          GestureDetector(
-            onTap: onAction,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 18, vertical: 9),
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(AppRadius.md),
-                border:
-                    Border.all(color: accent.withValues(alpha: 0.3)),
-              ),
-              child: Text('Start Analysis',
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: accent)),
-            ),
-          ),
         ],
       ),
     );

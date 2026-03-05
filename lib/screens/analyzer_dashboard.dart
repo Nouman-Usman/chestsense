@@ -2,19 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
 import 'dart:io';
-import '../services/ml_pipeline_service_tflite.dart';
+import '../core/service_locator.dart';
+import '../core/service_interfaces.dart';
 import '../services/firebase_auth_service.dart';
+import 'shared/cancer_classification_card.dart';
 
 /// Clean minimalist medical image analyzer dashboard
 class AnalyzerDashboard extends StatefulWidget {
-  const AnalyzerDashboard({Key? key}) : super(key: key);
+  const AnalyzerDashboard({super.key});
 
   @override
   State<AnalyzerDashboard> createState() => _AnalyzerDashboardState();
 }
 
 class _AnalyzerDashboardState extends State<AnalyzerDashboard> {
-  late MLPipelineServiceTFLite _pipeline;
+  late IMLPipelineService _pipeline;
   
   File? _selectedImage;
   bool _isInitializing = true;
@@ -30,7 +32,7 @@ class _AnalyzerDashboardState extends State<AnalyzerDashboard> {
 
   Future<void> _initializePipeline() async {
     try {
-      _pipeline = MLPipelineServiceTFLite();
+      _pipeline = getService<IMLPipelineService>();
       await _pipeline.initialize();
       setState(() => _isInitializing = false);
     } catch (e) {
@@ -274,10 +276,20 @@ class _AnalyzerDashboardState extends State<AnalyzerDashboard> {
 
   Widget _buildResultState() {
     final result = _result!;
-    final malignant = result.tumors
-        .where((t) => t.classification.toLowerCase() == 'malignant')
+    
+    // Count cancer types
+    final adenocarcinomaCount = result.tumors
+        .where((t) => t.classification.contains('Adenocarcinoma'))
         .length;
-    final benign = result.totalDetected - malignant;
+    final smallCellCount = result.tumors
+        .where((t) => t.classification.contains('Small Cell'))
+        .length;
+    final largeCellCount = result.tumors
+        .where((t) => t.classification.contains('Large Cell'))
+        .length;
+    final squamousCellCount = result.tumors
+        .where((t) => t.classification.contains('Squamous'))
+        .length;
 
     return SingleChildScrollView(
       child: Padding(
@@ -297,7 +309,7 @@ class _AnalyzerDashboardState extends State<AnalyzerDashboard> {
               children: [
                 Expanded(
                   child: _StatCard(
-                    label: 'Detected',
+                    label: 'Total Detected',
                     value: result.totalDetected.toString(),
                     icon: Icons.search,
                     color: Colors.blue,
@@ -306,8 +318,8 @@ class _AnalyzerDashboardState extends State<AnalyzerDashboard> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: _StatCard(
-                    label: 'Malignant',
-                    value: malignant.toString(),
+                    label: 'Adenocarcinoma',
+                    value: adenocarcinomaCount.toString(),
                     icon: Icons.warning,
                     color: Colors.red,
                   ),
@@ -319,10 +331,10 @@ class _AnalyzerDashboardState extends State<AnalyzerDashboard> {
               children: [
                 Expanded(
                   child: _StatCard(
-                    label: 'Benign',
-                    value: benign.toString(),
-                    icon: Icons.check_circle,
-                    color: Colors.green,
+                    label: 'Small Cell',
+                    value: smallCellCount.toString(),
+                    icon: Icons.warning_amber,
+                    color: Colors.deepOrange,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -336,16 +348,48 @@ class _AnalyzerDashboardState extends State<AnalyzerDashboard> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _StatCard(
+                    label: 'Large Cell',
+                    value: largeCellCount.toString(),
+                    icon: Icons.info,
+                    color: Colors.orange,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _StatCard(
+                    label: 'Squamous',
+                    value: squamousCellCount.toString(),
+                    icon: Icons.help,
+                    color: Colors.amber,
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 32),
 
-            // Detailed results
+            // Detailed results with heatmaps
             if (result.tumors.isNotEmpty) ...[
               Text(
-                'Disease Classifications',
-                style: Theme.of(context).textTheme.titleMedium,
+                'Disease Classifications & Heatmaps',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
               const SizedBox(height: 16),
-              ...result.tumors.map((tumor) => _TumorCard(tumor: tumor)),
+              ...result.tumors.map((tumor) => CancerClassificationCard(
+                    tumorIndex: tumor.index,
+                    classification: tumor.classification,
+                    confidence: tumor.classificationConfidence,
+                    classScores: tumor.classScores,
+                    detectionConfidence: tumor.detectionConfidence,
+                    heatmapImage: tumor.heatmapImage,
+                    originalRegion: tumor.originalRegion,
+                  )),
             ] else ...[
               Container(
                 width: double.infinity,
@@ -409,9 +453,9 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -432,69 +476,6 @@ class _StatCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               color: Colors.grey[600],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Tumor classification card
-class _TumorCard extends StatelessWidget {
-  final DetectedTumor tumor;
-
-  const _TumorCard({required this.tumor});
-
-  @override
-  Widget build(BuildContext context) {
-    final isMalignant = tumor.classification.toLowerCase() == 'malignant';
-    final color = isMalignant ? Colors.red : Colors.green;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Detected Region ${tumor.index}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Confidence: ${(tumor.classificationConfidence * 100).toStringAsFixed(1)}%',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                ),
-              ),
-            ],
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              tumor.classification,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
             ),
           ),
         ],

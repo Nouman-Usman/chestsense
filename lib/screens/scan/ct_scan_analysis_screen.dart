@@ -1,10 +1,12 @@
-import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../services/ml_pipeline_service_tflite.dart';
+import '../../core/service_locator.dart';
+import '../../core/service_interfaces.dart';
 import '../../theme/app_theme.dart';
+import '../../widgets/image_with_bounding_boxes.dart';
 
 // ─────────────────────────── CT-SCAN ANALYSIS SCREEN ───────────────────────────
 
@@ -25,7 +27,7 @@ class CTScanAnalysisScreen extends StatefulWidget {
 class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
     with TickerProviderStateMixin {
   // ── State ──────────────────────────────────────────────────────────────────
-  MLPipelineServiceTFLite? _pipeline;
+  IMLPipelineService? _pipeline;
   late AnimationController _pulseCtrl;
   late Animation<double> _pulseAnim;
 
@@ -39,13 +41,10 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
   // Sample images
   List<String> _samplePaths = [];
   String? _selectedSamplePath;
-  int? _hoveredIndex;
-
-  // Device image
-  File? _deviceImageFile;
 
   // Selected bytes (whichever path was chosen)
   Uint8List? _selectedBytes;
+  ui.Image? _decodedImage;
   String _selectedLabel = '';
 
   // Result
@@ -79,7 +78,7 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
   // ── Init ──────────────────────────────────────────────────────────────────
   Future<void> _initPipeline() async {
     try {
-      final p = MLPipelineServiceTFLite();
+      final p = getService<IMLPipelineService>();
       await p.initialize();
       if (mounted) {
         _pipeline = p;
@@ -113,7 +112,6 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
         _selectedSamplePath = path;
         _selectedBytes = bytes.buffer.asUint8List();
         _selectedLabel = 'CT Sample ${index + 1}';
-        _deviceImageFile = null;
         _result = null;
         _analysisError = null;
       });
@@ -129,7 +127,6 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
       if (xFile == null) return;
       final bytes = await xFile.readAsBytes();
       setState(() {
-        _deviceImageFile = File(xFile.path);
         _selectedBytes = bytes;
         _selectedLabel = xFile.name;
         _selectedSamplePath = null;
@@ -148,7 +145,6 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
       if (xFile == null) return;
       final bytes = await xFile.readAsBytes();
       setState(() {
-        _deviceImageFile = File(xFile.path);
         _selectedBytes = bytes;
         _selectedLabel = xFile.name;
         _selectedSamplePath = null;
@@ -174,10 +170,23 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
       _isAnalyzing = true;
       _result = null;
       _analysisError = null;
+      _decodedImage = null;
     });
     try {
+      // Run analysis
       final result = await _pipeline!.analyzeImageBytes(_selectedBytes!);
-      if (mounted) setState(() => _result = result);
+      
+      // Decode image for display with bounding boxes
+      final codec = await ui.instantiateImageCodec(_selectedBytes!);
+      final frame = await codec.getNextFrame();
+      final uiImage = frame.image;
+      
+      if (mounted) {
+        setState(() {
+          _result = result;
+          _decodedImage = uiImage;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _analysisError = e.toString());
     } finally {
@@ -354,7 +363,6 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
             _sectionLabelWithBack('DEVICE IMPORT', () {
               setState(() {
                 _mode = _SourceMode.none;
-                _deviceImageFile = null;
                 _selectedBytes = null;
                 _result = null;
               });
@@ -380,7 +388,6 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
               onClear: () => setState(() {
                 _selectedBytes = null;
                 _selectedSamplePath = null;
-                _deviceImageFile = null;
                 _result = null;
                 _analysisError = null;
               }),
@@ -392,12 +399,30 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
 
             // ── Analyze button ────────────────────────────────────────────
             _AnalyzeButton(
-              label: _isAnalyzing ? 'Analyzing…' : 'Run Analysis',
+              label: _isAnalyzing ? 'Analyzing with AI...' : 'Run Analysis',
               isLoading: _isAnalyzing,
               isReady: _pipelineReady && !_isAnalyzing,
               accent: _accent,
               onTap: _analyze,
             ),
+            if (_isAnalyzing) ...[
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.biotech, size: 16, color: Colors.grey.shade600),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Running YOLO + DenseNet models...',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 20),
           ],
 
@@ -408,7 +433,11 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
           if (_result != null) ...[
             _sectionLabel('ANALYSIS RESULTS'),
             const SizedBox(height: 12),
-            _ResultsPanel(result: _result!, accent: _accent),
+            _ResultsPanel(
+              result: _result!,
+              accent: _accent,
+              decodedImage: _decodedImage,
+            ),
           ],
 
           const SizedBox(height: 32),
@@ -502,7 +531,7 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
                     child: Image.asset(
                       _samplePaths[i],
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
+                      errorBuilder: (context, error, stackTrace) => Container(
                         color: AppColors.surfaceAlt,
                         child: const Icon(Icons.image_not_supported_outlined,
                             color: AppColors.textMuted, size: 28),
@@ -559,6 +588,29 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
         );
       },
     );
+  }
+
+  // Helper functions for classification colors and names
+  static Color _getColorForClassification(String classification) {
+    final lower = classification.toLowerCase();
+    if (lower.contains('adenocarcinoma') || lower.contains('class a')) {
+      return Colors.red;
+    } else if (lower.contains('small cell') || lower.contains('class b')) {
+      return Colors.deepOrange;
+    } else if (lower.contains('large cell') || lower.contains('class e')) {
+      return Colors.amber.shade700;
+    } else if (lower.contains('squamous') || lower.contains('class g')) {
+      return Colors.orange;
+    }
+    return Colors.blue;
+  }
+
+  static String _getShortClassName(String classification) {
+    if (classification.contains('Adenocarcinoma')) return 'Adeno';
+    if (classification.contains('Small Cell')) return 'Small Cell';
+    if (classification.contains('Large Cell')) return 'Large Cell';
+    if (classification.contains('Squamous')) return 'Squamous';
+    return classification;
   }
 }
 
@@ -645,53 +697,188 @@ class _SourceCard extends StatelessWidget {
 
 class _PickerPromptCard extends StatelessWidget {
   final Color accent;
-  final VoidCallback onTap;
+  final VoidCallback onGallery;
+  final VoidCallback onCamera;
 
-  const _PickerPromptCard({required this.accent, required this.onTap});
+  const _PickerPromptCard({
+    required this.accent,
+    required this.onGallery,
+    required this.onCamera,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 40),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.xl),
-          border: Border.all(
-              color: accent.withValues(alpha: 0.4),
-              width: 1.5,
-              strokeAlign: BorderSide.strokeAlignInside),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.add_photo_alternate_outlined,
-                  size: 32, color: accent),
+    return Column(
+      children: [
+        // ── Dotted upload zone ──
+        GestureDetector(
+          onTap: onGallery,
+          child: CustomPaint(
+            painter: _DashedBorderPainter(
+              color: accent.withValues(alpha: 0.55),
+              borderRadius: AppRadius.xl,
             ),
-            const SizedBox(height: 14),
-            Text('Tap to browse files',
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: accent)),
-            const SizedBox(height: 4),
-            const Text('PNG, JPEG, DICOM supported',
-                style: TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textMuted)),
+            child: Container(
+              width: double.infinity,
+              padding:
+                  const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(AppRadius.xl),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: accent.withValues(alpha: 0.25),
+                          width: 1.5),
+                    ),
+                    child: Icon(Icons.cloud_upload_outlined,
+                        size: 34, color: accent),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Tap to select chest X-ray',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: accent,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  const Text(
+                    'JPG/PNG  ·  Max 10 MB',
+                    style: TextStyle(
+                        fontSize: 12, color: AppColors.textMuted),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        // ── Gallery / Camera buttons ──
+        Row(
+          children: [
+            Expanded(
+              child: _PickerButton(
+                icon: Icons.photo_library_outlined,
+                label: 'Gallery',
+                accent: accent,
+                onTap: onGallery,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _PickerButton(
+                icon: Icons.camera_alt_outlined,
+                label: 'Camera',
+                accent: accent,
+                onTap: onCamera,
+              ),
+            ),
           ],
+        ),
+      ],
+    );
+  }
+}
+
+// ── Picker secondary button ───────────────────────────────────────────────────
+
+class _PickerButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color accent;
+  final VoidCallback onTap;
+
+  const _PickerButton({
+    required this.icon,
+    required this.label,
+    required this.accent,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(AppRadius.lg),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        splashColor: accent.withValues(alpha: 0.1),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            border: Border.all(color: accent.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: accent),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: accent,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+// ── Dashed border painter ─────────────────────────────────────────────────────
+
+class _DashedBorderPainter extends CustomPainter {
+  final Color color;
+  final double borderRadius;
+
+  _DashedBorderPainter({required this.color, required this.borderRadius});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.6
+      ..style = PaintingStyle.stroke;
+
+    final rrect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0.8, 0.8, size.width - 1.6, size.height - 1.6),
+      Radius.circular(borderRadius),
+    );
+    final path = Path()..addRRect(rrect);
+    _drawDashedPath(canvas, path, paint);
+  }
+
+  void _drawDashedPath(Canvas canvas, Path path, Paint paint) {
+    const dashWidth = 9.0;
+    const dashSpace = 6.0;
+    for (final metric in path.computeMetrics()) {
+      double distance = 0;
+      while (distance < metric.length) {
+        final end = (distance + dashWidth).clamp(0.0, metric.length);
+        canvas.drawPath(metric.extractPath(distance, end), paint);
+        distance += dashWidth + dashSpace;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedBorderPainter old) =>
+      old.color != color || old.borderRadius != borderRadius;
 }
 
 class _ImagePreviewCard extends StatelessWidget {
@@ -733,7 +920,7 @@ class _ImagePreviewCard extends StatelessWidget {
                     bytes,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
+                    errorBuilder: (context, error, stackTrace) => Container(
                       height: 180,
                       color: AppColors.surfaceAlt,
                       child: const Center(
@@ -920,46 +1107,59 @@ class _ErrorCard extends StatelessWidget {
 class _ResultsPanel extends StatelessWidget {
   final TumorAnalysisResult result;
   final Color accent;
+  final ui.Image? decodedImage;
 
-  const _ResultsPanel({required this.result, required this.accent});
+  const _ResultsPanel({
+    required this.result,
+    required this.accent,
+    this.decodedImage,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final malignant = result.tumors
-        .where((t) => t.classification.toLowerCase() == 'malignant')
-        .length;
-    final benign = result.tumors.length - malignant;
+    // Group by classification type
+    final classificationCounts = <String, int>{};
+    for (final tumor in result.tumors) {
+      final key = tumor.classification;
+      classificationCounts[key] = (classificationCounts[key] ?? 0) + 1;
+    }
 
     return Column(
       children: [
         // Summary stats row
-        Row(
-          children: [
-            Expanded(
-                child: _StatChip(
-              label: 'Detected',
-              value: '${result.totalDetected}',
-              icon: Icons.radar_rounded,
-              color: accent,
-            )),
-            const SizedBox(width: 8),
-            Expanded(
-                child: _StatChip(
-              label: 'Malignant',
-              value: '$malignant',
-              icon: Icons.warning_amber_rounded,
-              color: AppColors.error,
-            )),
-            const SizedBox(width: 8),
-            Expanded(
-                child: _StatChip(
-              label: 'Benign',
-              value: '$benign',
-              icon: Icons.check_circle_outline_rounded,
-              color: AppColors.success,
-            )),
-          ],
-        ),
+        if (classificationCounts.isNotEmpty)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _StatChip(
+                label: 'Total',
+                value: '${result.totalDetected}',
+                icon: Icons.radar_rounded,
+                color: accent,
+              ),
+              ...classificationCounts.entries.map((entry) {
+                final classification = entry.key;
+                final count = entry.value;
+                final color = _CTScanAnalysisScreenState._getColorForClassification(classification);
+                final shortName = _CTScanAnalysisScreenState._getShortClassName(classification);
+                
+                return _StatChip(
+                  label: shortName,
+                  value: '$count',
+                  icon: Icons.location_on_outlined,
+                  color: color,
+                );
+              }),
+            ],
+          )
+        else
+          _StatChip(
+            label: 'Detected',
+            value: '${result.totalDetected}',
+            icon: Icons.radar_rounded,
+            color: accent,
+          ),
         const SizedBox(height: 8),
         // Time chip
         Container(
@@ -986,6 +1186,111 @@ class _ResultsPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
+
+        // Image with heatmap and bounding boxes
+        if (decodedImage != null && result.tumors.isNotEmpty) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppRadius.lg),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.gradient_rounded,
+                        color: accent,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'AI Detection Heatmap',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Highlighted regions show tumor locations',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: ImageWithBoundingBoxes(
+                      image: decodedImage!,
+                      detections: result.tumors,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Legend
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    _HeatmapLegendItem(
+                      color: Colors.red,
+                      label: 'Adenocarcinoma',
+                    ),
+                    _HeatmapLegendItem(
+                      color: Colors.deepOrange,
+                      label: 'Small Cell',
+                    ),
+                    _HeatmapLegendItem(
+                      color: Colors.amber.shade700,
+                      label: 'Large Cell',
+                    ),
+                    _HeatmapLegendItem(
+                      color: Colors.orange,
+                      label: 'Squamous',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
 
         // No detections
         if (result.tumors.isEmpty)
@@ -1105,10 +1410,7 @@ class _TumorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMalignant =
-        tumor.classification.toLowerCase() == 'malignant';
-    final statusColor =
-        isMalignant ? AppColors.error : AppColors.success;
+    final statusColor = _CTScanAnalysisScreenState._getColorForClassification(tumor.classification);
     final confPct = (tumor.classificationConfidence * 100).clamp(0, 100);
     final detPct = (tumor.detectionConfidence * 100).clamp(0, 100);
 
@@ -1153,15 +1455,13 @@ class _TumorCard extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      isMalignant
-                          ? Icons.warning_rounded
-                          : Icons.check_circle_rounded,
+                      Icons.local_hospital_rounded,
                       size: 11,
                       color: statusColor,
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      tumor.classification.toUpperCase(),
+                      _CTScanAnalysisScreenState._getShortClassName(tumor.classification),
                       style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
@@ -1265,6 +1565,43 @@ class _ConfidenceBar extends StatelessWidget {
             backgroundColor: AppColors.border,
             valueColor: AlwaysStoppedAnimation(color),
             minHeight: 5,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HeatmapLegendItem extends StatelessWidget {
+  final Color color;
+  final String label;
+
+  const _HeatmapLegendItem({
+    required this.color,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: color, width: 2),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
