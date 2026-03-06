@@ -564,13 +564,13 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen> {
   static Color _getColorForClassification(String classification) {
     final lower = classification.toLowerCase();
     if (lower.contains('adenocarcinoma') || lower.contains('class a')) {
-      return const Color(0xFFE53935); // Bright red - most serious
+      return const Color(0xFFE53935); // Bright Red - most critical
     } else if (lower.contains('small cell') || lower.contains('class b')) {
-      return const Color(0xFF8E24AA); // Purple - distinct from others
+      return const Color(0xFF3F51B5); // Indigo/Blue - cool contrast
     } else if (lower.contains('large cell') || lower.contains('class e')) {
-      return const Color(0xFF00897B); // Teal - cool color for contrast
+      return const Color(0xFF43A047); // Green - distinct from warm/cool
     } else if (lower.contains('squamous') || lower.contains('class g')) {
-      return const Color(0xFFFB8C00); // Deep orange - warm but distinct
+      return const Color(0xFFFF9800); // Bright Orange - warm spectrum
     }
     return Colors.blue;
   }
@@ -1267,19 +1267,19 @@ class _ResultsPanel extends StatelessWidget {
                   runSpacing: 8,
                   children: [
                     _HeatmapLegendItem(
-                      color: Colors.red,
+                      color: const Color(0xFFE53935),
                       label: 'Adenocarcinoma',
                     ),
                     _HeatmapLegendItem(
-                      color: Colors.deepOrange,
+                      color: const Color(0xFF3F51B5),
                       label: 'Small Cell',
                     ),
                     _HeatmapLegendItem(
-                      color: Colors.amber.shade700,
+                      color: const Color(0xFF43A047),
                       label: 'Large Cell',
                     ),
                     _HeatmapLegendItem(
-                      color: Colors.orange,
+                      color: const Color(0xFFFF9800),
                       label: 'Squamous',
                     ),
                   ],

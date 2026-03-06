@@ -33,7 +33,7 @@ class YOLODetectionResult {
 
 /// Web stub for YOLO detection - FFI not available on web
 class YOLODetectionServiceTFLite {
-  static const String modelAsset = 'assets/models/yolo_best_int8.tflite';
+  static const String modelAsset = 'lib/ML/yolo/best_float16.tflite';
   static const int inputSize = 640;
   static const double confidenceThreshold = 0.3;
   static const double iouThreshold = 0.5;
