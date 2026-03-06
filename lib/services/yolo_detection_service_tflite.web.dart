@@ -1,4 +1,5 @@
 import 'package:image/image.dart' as img;
+import 'package:chestsense/core/ml_config.dart';
 
 class YOLODetectionResult {
   final double x;
@@ -37,7 +38,7 @@ class YOLODetectionServiceTFLite {
   static const double confidenceThreshold = 0.3;
   static const double iouThreshold = 0.5;
 
-  YOLODetectionServiceTFLite();
+  YOLODetectionServiceTFLite({required YOLOConfig config});
 
   Future<void> initialize() async {
     throw UnsupportedError(

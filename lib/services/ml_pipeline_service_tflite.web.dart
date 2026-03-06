@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:image/image.dart' as img;
+import 'package:chestsense/core/service_interfaces.dart';
 
 class TumorAnalysisResult {
   final int totalDetected;
@@ -59,7 +60,10 @@ class DetectedTumor {
 class MLPipelineServiceTFLite {
   bool _initialized = false;
 
-  MLPipelineServiceTFLite();
+  MLPipelineServiceTFLite({
+    required IDetectionService detectionService,
+    required IClassificationService classificationService,
+  });
 
   Future<void> initialize() async {
     throw UnsupportedError(

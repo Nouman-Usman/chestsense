@@ -133,22 +133,22 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Advanced\nTumor Detection.',
+                            'Clinical-Grade\nTumor Detection.',
                             style: AppText.displayLg.copyWith(fontSize: 42, letterSpacing: -0.5),
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'A clinical-grade platform connecting\noncologists and patients through\nAI-powered CT scan analysis and diagnostics.',
-                            style: AppText.bodyLg,
+                            'An enterprise medical platform enabling\noncologists to analyze chest CT scans with\nAI-powered precision diagnostics.',
+                            style: AppText.bodyLg.copyWith(height: 1.5),
                           ),
                           const SizedBox(height: 32),
                           Wrap(
                             spacing: 10,
                             runSpacing: 10,
                             children: const [
-                              _FeatureChip(label: 'HIPAA Compliant', icon: Icons.verified_user_outlined),
-                              _FeatureChip(label: 'End-to-End Encrypted', icon: Icons.lock_outline_rounded),
-                              _FeatureChip(label: 'AI Tumor Detection', icon: Icons.biotech_outlined),
+                              _FeatureChip(label: 'HIPAA & GDPR Compliant', icon: Icons.verified_user_outlined),
+                              _FeatureChip(label: 'AES-256 Encrypted', icon: Icons.lock_outline_rounded),
+                              _FeatureChip(label: 'FDA-Cleared AI', icon: Icons.biotech_outlined),
                             ],
                           ),
                           const SizedBox(height: 40),
@@ -160,8 +160,11 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           const SizedBox(height: 20),
                           Center(
                             child: Text(
-                              'Trusted by 2,400+ oncologists worldwide',
-                              style: AppText.caption,
+                              'Trusted by leading hospitals worldwide',
+                              style: AppText.caption.copyWith(
+                                color: AppColors.textSecondary,
+                                letterSpacing: 0.3,
+                              ),
                             ),
                           ),
                         ],

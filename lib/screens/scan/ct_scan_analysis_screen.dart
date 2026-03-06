@@ -24,12 +24,9 @@ class CTScanAnalysisScreen extends StatefulWidget {
   State<CTScanAnalysisScreen> createState() => _CTScanAnalysisScreenState();
 }
 
-class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
-    with TickerProviderStateMixin {
+class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen> {
   // ── State ──────────────────────────────────────────────────────────────────
   IMLPipelineService? _pipeline;
-  late AnimationController _pulseCtrl;
-  late Animation<double> _pulseAnim;
 
   bool _pipelineReady = false;
   bool _isAnalyzing = false;
@@ -58,19 +55,12 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
   @override
   void initState() {
     super.initState();
-    _pulseCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat(reverse: true);
-    _pulseAnim = Tween<double>(begin: 0.6, end: 1.0)
-        .animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
     _initPipeline();
     _loadSampleManifest();
   }
 
   @override
   void dispose() {
-    _pulseCtrl.dispose();
     _pipeline?.dispose();
     super.dispose();
   }
@@ -268,32 +258,12 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
               : _initError != null
                   ? const Icon(Icons.error_outline_rounded,
                       size: 18, color: AppColors.error)
-                  : FadeTransition(
-                      opacity: _pulseAnim,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 7,
-                            height: 7,
-                            decoration: BoxDecoration(
-                              color: AppColors.warning,
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                    color: AppColors.warning
-                                        .withValues(alpha: 0.5),
-                                    blurRadius: 6)
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 5),
-                          const Text('Loading',
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.warning,
-                                  fontWeight: FontWeight.w600)),
-                        ],
+                  : const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(AppColors.warning),
                       ),
                     ),
         ),
@@ -594,13 +564,13 @@ class _CTScanAnalysisScreenState extends State<CTScanAnalysisScreen>
   static Color _getColorForClassification(String classification) {
     final lower = classification.toLowerCase();
     if (lower.contains('adenocarcinoma') || lower.contains('class a')) {
-      return Colors.red;
+      return const Color(0xFFE53935); // Bright red - most serious
     } else if (lower.contains('small cell') || lower.contains('class b')) {
-      return Colors.deepOrange;
+      return const Color(0xFF8E24AA); // Purple - distinct from others
     } else if (lower.contains('large cell') || lower.contains('class e')) {
-      return Colors.amber.shade700;
+      return const Color(0xFF00897B); // Teal - cool color for contrast
     } else if (lower.contains('squamous') || lower.contains('class g')) {
-      return Colors.orange;
+      return const Color(0xFFFB8C00); // Deep orange - warm but distinct
     }
     return Colors.blue;
   }
@@ -987,7 +957,7 @@ class _ImagePreviewCard extends StatelessWidget {
   }
 }
 
-class _AnalyzeButton extends StatelessWidget {
+class _AnalyzeButton extends StatefulWidget {
   final String label;
   final bool isLoading;
   final bool isReady;
@@ -1003,6 +973,12 @@ class _AnalyzeButton extends StatelessWidget {
   });
 
   @override
+  State<_AnalyzeButton> createState() => _AnalyzeButtonState();
+}
+
+class _AnalyzeButtonState extends State<_AnalyzeButton> {
+
+  @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
@@ -1010,24 +986,28 @@ class _AnalyzeButton extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: isReady ? onTap : null,
+          onTap: widget.isReady ? widget.onTap : null,
           borderRadius: BorderRadius.circular(AppRadius.lg),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
             decoration: BoxDecoration(
-              gradient: isReady
+              gradient: widget.isReady
                   ? LinearGradient(
-                      colors: [accent, accent.withValues(alpha: 0.8)],
+                      colors: [
+                        widget.accent,
+                        widget.accent.withValues(alpha: 0.85)
+                      ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     )
                   : null,
-              color: isReady ? null : AppColors.surfaceAlt,
+              color: widget.isReady ? null : AppColors.surfaceAlt,
               borderRadius: BorderRadius.circular(AppRadius.lg),
-              boxShadow: isReady
+              boxShadow: widget.isReady
                   ? [
                       BoxShadow(
-                        color: accent.withValues(alpha: 0.35),
+                        color: widget.accent.withValues(alpha: 0.35),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       )
@@ -1037,26 +1017,44 @@ class _AnalyzeButton extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                if (isLoading)
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Colors.white),
-                  )
-                else
-                  Icon(Icons.play_arrow_rounded,
-                      size: 22,
-                      color: isReady
-                          ? Colors.white
-                          : AppColors.textMuted),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeIn,
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: child,
+                    );
+                  },
+                  child: widget.isLoading
+                      ? SizedBox(
+                          key: const ValueKey('loading'),
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                            strokeCap: StrokeCap.round,
+                          ),
+                        )
+                      : Icon(
+                          Icons.biotech_rounded,
+                          key: const ValueKey('ready'),
+                          size: 22,
+                          color: widget.isReady
+                              ? Colors.white
+                              : AppColors.textMuted,
+                        ),
+                ),
                 const SizedBox(width: 10),
                 Text(
-                  label,
+                  widget.label,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: isReady ? Colors.white : AppColors.textMuted,
+                    color: widget.isReady ? Colors.white : AppColors.textMuted,
+                    letterSpacing: 0.3,
                   ),
                 ),
               ],

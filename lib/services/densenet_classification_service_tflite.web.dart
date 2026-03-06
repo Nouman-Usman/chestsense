@@ -1,4 +1,5 @@
 import 'package:image/image.dart' as img;
+import 'package:chestsense/core/ml_config.dart';
 
 class ClassificationResult {
   final String label;
@@ -27,7 +28,7 @@ class DenseNetClassificationServiceTFLite {
     3: 'Squamous Cell (Class G)',
   };
 
-  DenseNetClassificationServiceTFLite();
+  DenseNetClassificationServiceTFLite({required DenseNetConfig config});
 
   Future<void> initialize() async {
     throw UnsupportedError(
