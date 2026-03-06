@@ -1121,7 +1121,7 @@ class _ResultsPanel extends StatelessWidget {
       final key = tumor.classification;
       classificationCounts[key] = (classificationCounts[key] ?? 0) + 1;
     }
-
+    
     return Column(
       children: [
         // Summary stats row
