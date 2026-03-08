@@ -6,7 +6,6 @@ import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../services/firebase_auth_service.dart';
 import '../../services/firebase_db_service.dart';
-import '../../services/storage_service.dart';
 import '../../services/ml_service.dart';
 
 class XrayUploadScreen extends StatefulWidget {
@@ -31,7 +30,6 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
   String? _errorMsg;
 
   // ── Result state ───────────────────────────────────────────────────────────
-  MLResponse? _result;
   CombinedAnalysisResult? _combinedResult;
   String? _imageUrl;
 
@@ -44,9 +42,9 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 500));
+        vsync: this, duration: const Duration(milliseconds: 700));
     _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-    _slide = Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
+    _slide = Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
     _ctrl.forward();
   }
@@ -60,24 +58,15 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
   // ── Pick image ─────────────────────────────────────────────────────────────
   Future<void> _pick(ImageSource src) async {
     final picker = ImagePicker();
-    // Restrict to image files only (JPEG, PNG)
     final file = await picker.pickImage(
       source: src,
       imageQuality: 90,
-      requestFullMetadata: false,
     );
     if (file == null) return;
     
-    // Validate file extension
-    final ext = file.path.toLowerCase().split('.').last;
-    if (!['jpg', 'jpeg', 'png'].contains(ext)) {
-      setState(() => _errorMsg = 'Please select a valid image (JPG or PNG)');
-      return;
-    }
-    
     setState(() {
       _xfile = file;
-      _result = null;
+      _combinedResult = null;
       _errorMsg = null;
       _imageUrl = null;
     });
@@ -87,43 +76,42 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
     }
   }
 
-  // ── Upload → Analyse (with YOLO + Doctr) ─────────────────────────────────
+  // ── Analyse (Local DenseNet) ─────────────────────────────────────────────
   Future<void> _analyzeXray() async {
     if (_xfile == null) return;
 
     final auth    = context.read<FirebaseAuthService>();
     final db      = context.read<FirebaseDbService>();
-    final storage = context.read<StorageService>();
     final ml      = context.read<MLService>();
     final uid     = auth.currentUser?.uid ?? 'anon';
 
     setState(() {
-      _uploading = true;
-      _analyzing = false;
+      _uploading = false; // No longer uploading to cloud
+      _analyzing = true;
       _errorMsg  = null;
-      _result    = null;
       _combinedResult = null;
     });
 
     try {
-      // 1 – Upload to Firebase Storage
       final dynamic fileArg = kIsWeb ? _webBytes! : File(_xfile!.path);
-      final url = await storage.uploadXray(userId: uid, file: fileArg);
-      _imageUrl = url;
-      setState(() { _uploading = false; _analyzing = true; });
-
-      // 2 – Run combined analysis (YOLO detection + Doctr OCR)
-      final imageWidth = 640; // Default size, can be obtained from image metadata
-      final imageHeight = 640;
       
-      final combinedResult = await ml.analyzeChestXray(
-        imageFile: fileArg,
-        imageUrl: url,
-        imageWidth: imageWidth,
-        imageHeight: imageHeight,
-        includeDocumentOCR: _useOCR,
-        useBackendAPI: false, // Set to true if backend is configured
-      );
+      // 1. Try Backend AI (Port 5001 - Grad-CAM + Prediction)
+      final isHealthy = await ml.checkHealth();
+      CombinedAnalysisResult combinedResult;
+
+      if (isHealthy && !kIsWeb) {
+        debugPrint('Using Backend AI Analysis...');
+        combinedResult = await ml.analyzeWithBackend(File(_xfile!.path));
+      } else {
+        // 2. Fallback to Local Models (DenseNet)
+        debugPrint('Backend offline or Web. Using Local AI...');
+        combinedResult = await ml.analyzeChestXray(
+          imageFile: fileArg,
+          imageWidth: 640,
+          imageHeight: 640,
+          includeDocumentOCR: _useOCR,
+        );
+      }
 
       setState(() { 
         _analyzing = false;
@@ -131,17 +119,13 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
       });
 
       if (combinedResult.isSuccess) {
-        // 3 – Persist result to Firestore with combined data
+        // Persist textual result to DB
         await db.saveAnalysisResult(
           patientUid: uid,
-          imageUrl: url,
-          diagnosis: combinedResult.yoloDetection.primaryAnomaly,
-          confidence: combinedResult.yoloDetection.anomalyScore,
-          classScores: {
-            'severity_${combinedResult.yoloDetection.anomalySeverity}': 1.0,
-            'detections_count': combinedResult.yoloDetection.detections.length.toDouble(),
-            'ocr_confidence': combinedResult.documentOCR?.confidence ?? 0.0,
-          },
+          imageUrl: null, // No cloud URL
+          diagnosis: combinedResult.densenetResult?.diagnosis ?? 'Normal / Unclassified',
+          confidence: combinedResult.densenetResult?.confidence ?? 0.0,
+          classScores: combinedResult.densenetResult?.classScores ?? {},
           heatmapUrl: null,
         );
       } else {
@@ -149,7 +133,6 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
       }
     } catch (e) {
       setState(() {
-        _uploading  = false;
         _analyzing  = false;
         _errorMsg   = e.toString();
       });
@@ -242,102 +225,29 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
     return const SizedBox.shrink();
   }
 
-  Widget _buildResultCard(MLResponse res) {
-    if (!res.isSuccess) {
-      return _ErrorCard(message: res.errorMessage ?? 'Unknown error');
-    }
 
-    final pct = (res.confidence * 100).toStringAsFixed(1);
-    Color diagColor = res.diagnosis.toLowerCase().contains('normal')
-        ? Colors.greenAccent.shade400
-        : Colors.orangeAccent;
 
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.task_alt_rounded, color: _accent, size: 18),
-              const SizedBox(width: 8),
-              Text('Analysis Complete',
-                  style: AppText.label.copyWith(color: _accent)),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // Diagnosis badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: diagColor.withAlpha(25),
-              borderRadius: BorderRadius.circular(AppRadius.xxl),
-              border: Border.all(color: diagColor.withAlpha(80)),
-            ),
-            child: Text(res.diagnosis,
-                style: AppText.headingMd.copyWith(color: diagColor)),
-          ),
-          const SizedBox(height: 16),
-          // Confidence bar
-          Text('Confidence: $pct%',
-              style: AppText.caption.copyWith(color: AppColors.textSecondary)),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadius.xxl),
-            child: LinearProgressIndicator(
-              value: res.confidence,
-              minHeight: 8,
-              backgroundColor: AppColors.border,
-              valueColor: AlwaysStoppedAnimation(_accent),
-            ),
-          ),
-          if (res.classScores.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const _Divider(),
-            const SizedBox(height: 12),
-            Text('Class probabilities',
-                style: AppText.caption
-                    .copyWith(color: AppColors.textMuted)),
-            const SizedBox(height: 8),
-            ...res.classScores.entries.map((e) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: _ScoreRow(label: e.key, value: e.value),
-                )),
-          ],
-          if (_imageUrl != null) ...[
-            const SizedBox(height: 16),
-            const _Divider(),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              child: Image.network(_imageUrl!,
-                  height: 160, width: double.infinity, fit: BoxFit.cover),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// Build combined analysis result card (YOLO + Doctr)
+  /// Build combined analysis result card (DenseNet + OCR)
   Widget _buildCombinedResultCard(CombinedAnalysisResult res) {
     if (!res.isSuccess) {
       return _ErrorCard(message: res.errorMessage ?? 'Analysis failed');
     }
 
-    final yolo = res.yoloDetection;
+    final densenet = res.densenetResult;
     final ocr = res.documentOCR;
+
+    final diagnosis = densenet?.diagnosis ?? 'Normal / Unclassified';
+    final confidence = densenet?.confidence ?? 0.0;
 
     // Determine severity color
     Color severityColor;
-    switch (yolo.anomalySeverity) {
-      case 'critical':
-        severityColor = Colors.redAccent;
-      case 'moderate':
-        severityColor = Colors.orangeAccent;
-      case 'mild':
-        severityColor = Colors.yellowAccent;
-      default:
-        severityColor = Colors.greenAccent.shade400;
+    final diagLower = diagnosis.toLowerCase();
+    if (diagLower.contains('normal')) {
+      severityColor = Colors.greenAccent.shade400;
+    } else if (diagLower.contains('adenocarcinoma') || diagLower.contains('small cell')) {
+      severityColor = Colors.redAccent;
+    } else {
+      severityColor = Colors.orangeAccent;
     }
 
     return AppCard(
@@ -349,13 +259,13 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
             children: [
               Icon(Icons.psychology_outlined, color: _accent, size: 18),
               const SizedBox(width: 8),
-              Text('YOLO Detection + OCR Analysis',
+              Text('AI Health Assessment (Local AI)',
                   style: AppText.label.copyWith(color: _accent)),
             ],
           ),
           const SizedBox(height: 16),
 
-          // Severity Badge
+          // Diagnosis Badge
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
@@ -364,51 +274,42 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
               border: Border.all(color: severityColor.withAlpha(80)),
             ),
             child: Text(
-              yolo.anomalySeverity.toUpperCase(),
+              diagnosis.toUpperCase(),
               style: AppText.headingMd.copyWith(color: severityColor),
             ),
           ),
           const SizedBox(height: 16),
 
-          // YOLO Detection Info
-          Text('Anomaly Score: ${(yolo.anomalyScore * 100).toStringAsFixed(1)}%',
+          // Confidence Info
+          Text('AI Confidence: ${(confidence * 100).toStringAsFixed(1)}%',
               style: AppText.caption.copyWith(color: AppColors.textSecondary)),
           const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(AppRadius.xxl),
             child: LinearProgressIndicator(
-              value: yolo.anomalyScore.clamp(0.0, 1.0),
+              value: confidence.clamp(0.0, 1.0),
               minHeight: 8,
               backgroundColor: AppColors.border,
               valueColor: AlwaysStoppedAnimation(_accent),
             ),
           ),
 
-          if (yolo.detections.isNotEmpty) ...[
+          if (densenet != null && densenet.classScores.isNotEmpty) ...[
             const SizedBox(height: 16),
             const _Divider(),
             const SizedBox(height: 12),
-            Text('Detections (${yolo.detections.length})',
+            Text('Diagnosis Breakdown',
                 style: AppText.caption.copyWith(color: AppColors.textMuted)),
             const SizedBox(height: 8),
-            ...yolo.getSortedByConfidence().take(5).map((det) {
+            ...densenet.classScores.entries.map((e) {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 6),
                 child: _ScoreRow(
-                  label: det.className,
-                  value: det.confidence,
+                  label: e.key,
+                  value: e.value,
                 ),
               );
             }),
-            if (yolo.detections.length > 5)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  '+${yolo.detections.length - 5} more',
-                  style: AppText.caption
-                      .copyWith(color: AppColors.textMuted),
-                ),
-              ),
           ],
 
           // OCR Results
@@ -460,18 +361,35 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
           const _Divider(),
           const SizedBox(height: 12),
           Text(
-            'Processing time: ${yolo.processingTimeMs}ms',
+            'High-precision DenseNet classification',
             style: AppText.caption
                 .copyWith(color: AppColors.textMuted, fontSize: 10),
           ),
 
-          if (_imageUrl != null) ...[
+          if (_xfile != null) ...[
             const SizedBox(height: 12),
             ClipRRect(
               borderRadius: BorderRadius.circular(AppRadius.md),
-              child: Image.network(_imageUrl!,
-                  height: 160, width: double.infinity, fit: BoxFit.cover),
+              child: res.densenetResult?.heatmapBytes != null
+                  ? Image.memory(res.densenetResult!.heatmapBytes!,
+                      height: 180, width: double.infinity, fit: BoxFit.cover)
+                  : (kIsWeb
+                      ? Image.memory(_webBytes!,
+                          height: 160,
+                          width: double.infinity,
+                          fit: BoxFit.cover)
+                      : Image.file(File(_xfile!.path),
+                          height: 160,
+                          width: double.infinity,
+                          fit: BoxFit.cover)),
             ),
+            if (res.densenetResult?.heatmapBytes != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text('✦ Grad-CAM visualization active',
+                    style: AppText.caption.copyWith(
+                        color: _accent, fontSize: 10, fontWeight: FontWeight.bold)),
+              ),
           ],
         ],
       ),
@@ -540,9 +458,6 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
                         if (_combinedResult != null) ...[
                           const SizedBox(height: 8),
                           _buildCombinedResultCard(_combinedResult!),
-                        ] else if (_result != null) ...[
-                          const SizedBox(height: 8),
-                          _buildResultCard(_result!),
                         ],
                       ],
                     ),

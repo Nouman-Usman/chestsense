@@ -4,15 +4,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 class FirebaseDbService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
-
-  // Get current user ID
   String? get currentUserId => _firebaseAuth.currentUser?.uid;
-
-  // Create user document
   Future<void> createUserDocument({
     required String uid,
     required String email,
-    required String role, // 'doctor' or 'patient'
+    required String role,
     required String displayName,
     required String phone,
   }) async {
@@ -30,8 +26,6 @@ class FirebaseDbService {
       rethrow;
     }
   }
-
-  // Get user data
   Future<Map<String, dynamic>?> getUserData(String uid) async {
     try {
       final doc = await _firestore.collection('users').doc(uid).get();
@@ -40,8 +34,6 @@ class FirebaseDbService {
       rethrow;
     }
   }
-
-  // Update user data
   Future<void> updateUserData(String uid, Map<String, dynamic> data) async {
     try {
       await _firestore.collection('users').doc(uid).update({
@@ -52,13 +44,9 @@ class FirebaseDbService {
       rethrow;
     }
   }
-
-  // Stream user data
   Stream<DocumentSnapshot<Map<String, dynamic>>> getUserStream(String uid) {
     return _firestore.collection('users').doc(uid).snapshots();
   }
-
-  // Create patient profile
   Future<void> createPatientProfile({
     required String uid,
     required String age,
@@ -78,8 +66,6 @@ class FirebaseDbService {
       rethrow;
     }
   }
-
-  // Create doctor profile
   Future<void> createDoctorProfile({
     required String uid,
     required String specialization,
@@ -100,8 +86,6 @@ class FirebaseDbService {
       rethrow;
     }
   }
-
-  // Store ECG data (for patients)
   Future<void> storeECGData({
     required String patientUid,
     required List<double> ecgValues,
@@ -121,8 +105,6 @@ class FirebaseDbService {
       rethrow;
     }
   }
-
-  // Get patient's ECG data
   Stream<QuerySnapshot<Map<String, dynamic>>> getPatientECGDataStream(
     String patientUid,
   ) {
@@ -133,22 +115,17 @@ class FirebaseDbService {
         .orderBy('timestamp', descending: true)
         .snapshots();
   }
-
-  // Add patient-doctor connection
   Future<void> addPatientDoctorConnection({
     required String patientUid,
     required String doctorUid,
   }) async {
     try {
-      // Add doctor reference to patient's connections
       await _firestore
           .collection('patients')
           .doc(patientUid)
           .update({
         'associatedDoctors': FieldValue.arrayUnion([doctorUid]),
       });
-
-      // Add patient reference to doctor's patients
       await _firestore
           .collection('doctors')
           .doc(doctorUid)
@@ -160,7 +137,6 @@ class FirebaseDbService {
     }
   }
 
-  // Remove patient-doctor connection
   Future<void> removePatientDoctorConnection({
     required String patientUid,
     required String doctorUid,
@@ -183,8 +159,6 @@ class FirebaseDbService {
       rethrow;
     }
   }
-
-  // Get doctor's patients list
   Future<List<Map<String, dynamic>>> getDoctorPatients(String doctorUid) async {
     try {
       final doc = await _firestore.collection('doctors').doc(doctorUid).get();
@@ -202,7 +176,6 @@ class FirebaseDbService {
     }
   }
 
-  // Create notification
   Future<void> createNotification({
     required String recipientUid,
     required String title,
@@ -224,8 +197,6 @@ class FirebaseDbService {
       rethrow;
     }
   }
-
-  // Get user notifications
   Stream<QuerySnapshot<Map<String, dynamic>>> getUserNotificationsStream(
     String uid,
   ) {
@@ -235,8 +206,6 @@ class FirebaseDbService {
         .orderBy('createdAt', descending: true)
         .snapshots();
   }
-
-  // Mark notification as read
   Future<void> markNotificationAsRead(String notificationId) async {
     try {
       await _firestore
@@ -253,7 +222,7 @@ class FirebaseDbService {
   /// Persist an analysis result under the patient's subcollection.
   Future<String> saveAnalysisResult({
     required String patientUid,
-    required String imageUrl,
+    String? imageUrl,
     required String diagnosis,
     required double confidence,
     required Map<String, double> classScores,

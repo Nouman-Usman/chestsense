@@ -7,18 +7,13 @@ import 'theme/app_theme.dart';
 import 'screens/auth/auth_gate.dart';
 import 'services/firebase_auth_service.dart';
 import 'services/firebase_db_service.dart';
-import 'services/storage_service.dart';
 import 'services/ml_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
-  // Initialize ML Services (YOLO & Doctr)
   final mlService = MLService();
   await mlService.initialize();
   
@@ -27,17 +22,17 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-  runApp(const ChestSenseApp());
+  runApp(ChestSenseApp(mlService: mlService));
 }
 
 class ChestSenseApp extends StatelessWidget {
-  const ChestSenseApp({super.key});
+  final MLService mlService;
+  const ChestSenseApp({super.key, required this.mlService});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // Initialize auth service immediately (lazy: false) to ensure session is loaded
         Provider<FirebaseAuthService>(
           create: (_) => FirebaseAuthService(),
           lazy: false,
@@ -45,11 +40,8 @@ class ChestSenseApp extends StatelessWidget {
         Provider<FirebaseDbService>(
           create: (_) => FirebaseDbService(),
         ),
-        Provider<StorageService>(
-          create: (_) => StorageService(),
-        ),
-        Provider<MLService>(
-          create: (_) => MLService(),
+        Provider<MLService>.value(
+          value: mlService,
         ),
       ],
       child: MaterialApp(
