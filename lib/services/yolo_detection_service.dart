@@ -121,7 +121,7 @@ class YoloDetectionResult {
 
 /// YOLO Detection Service using TensorFlow Lite
 class YoloDetectionService {
-  static const String modelPath = 'assets/ml/yolo/best.tflite';
+  static const String modelPath = 'lib/ML/yolo/best_float16.tflite';
   static const int inputSize = 640;
   static const double confidenceThreshold = 0.5;
   static const double iouThreshold = 0.45;

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'yolo_detection_service.dart';
 import 'doctr_service.dart';
+import 'densenet_service.dart';
 
 /// Change this to your ML backend URL.
 const String kMlBaseUrl = 'https://your-ml-api.example.com';
@@ -12,14 +13,28 @@ const String kMlBaseUrl = 'https://your-ml-api.example.com';
 class MLService {
   final YoloDetectionService _yoloService = YoloDetectionService();
   final DoctrService _doctrService = DoctrService();
+  final DensenetService _densenetService = DensenetService();
 
   /// Initialize all ML services
   Future<void> initialize() async {
     try {
       await _yoloService.initialize();
+      await _densenetService.initialize();
       debugPrint('ML Services initialized successfully');
     } catch (e) {
       debugPrint('Error initializing ML services: $e');
+    }
+  }
+
+  /// DenseNet Classification: Diagnose chest X-ray
+  Future<DensenetResult> classifyXray({
+    required dynamic imageFile,
+  }) async {
+    try {
+      return await _densenetService.classify(imageFile: imageFile);
+    } catch (e) {
+      debugPrint('Classification error: $e');
+      return DensenetResult.error('Classification failed: $e');
     }
   }
 
@@ -71,8 +86,8 @@ class MLService {
     return _doctrService.getDocumentQualityScore(document);
   }
 
-  /// Combined analysis: Run both YOLO detection and OCR
-  /// Returns comprehensive analysis of chest X-ray with document data
+  /// Combined analysis: Run YOLO detection, DenseNet classification, and OCR
+  /// Returns comprehensive analysis of chest X-ray
   Future<CombinedAnalysisResult> analyzeChestXray({
     required dynamic imageFile, // File on mobile, Uint8List on web
     required String imageUrl, // Already-uploaded Storage URL
@@ -82,20 +97,23 @@ class MLService {
     bool useBackendAPI = false,
   }) async {
     try {
-      // Run YOLO detection
+      // 1. Run YOLO detection
       final yoloResult = await detectAnomalies(
         imageFile: imageFile,
         imageWidth: imageWidth,
         imageHeight: imageHeight,
       );
 
-      // Run OCR if requested
+      // 2. Run DenseNet classification
+      final densenetResult = await classifyXray(imageFile: imageFile);
+
+      // 3. Run OCR if requested
       DocumentText? ocrResult;
       if (includeDocumentOCR) {
         ocrResult = await recognizeDocument(imageFile: imageFile);
       }
 
-      // Optionally use backend API for additional analysis
+      // 4. Optionally use backend API
       MLResponse? backendResult;
       if (useBackendAPI) {
         backendResult = await analyze(
@@ -107,6 +125,7 @@ class MLService {
 
       return CombinedAnalysisResult(
         yoloDetection: yoloResult,
+        densenetResult: densenetResult,
         documentOCR: ocrResult,
         backendAnalysis: backendResult,
         timestamp: DateTime.now(),
@@ -213,9 +232,10 @@ class MLResponse {
   bool get isSuccess => status == AnalysisStatus.complete;
 }
 
-/// Combined result from YOLO detection + Doctr OCR + optional backend analysis
+/// Combined result from YOLO detection + DenseNet + Doctr OCR
 class CombinedAnalysisResult {
   final YoloDetectionResult yoloDetection;
+  final DensenetResult? densenetResult;
   final DocumentText? documentOCR;
   final MLResponse? backendAnalysis;
   final DateTime timestamp;
@@ -223,6 +243,7 @@ class CombinedAnalysisResult {
 
   const CombinedAnalysisResult({
     required this.yoloDetection,
+    this.densenetResult,
     this.documentOCR,
     this.backendAnalysis,
     required this.timestamp,
@@ -233,16 +254,23 @@ class CombinedAnalysisResult {
   String getCombinedSeverity() {
     if (errorMessage != null) return 'error';
 
-    // Combine YOLO severity with document findings
-    var yoloSeverity = yoloDetection.anomalySeverity;
+    // Combine YOLO severity with DenseNet findings
+    var severity = yoloDetection.anomalySeverity;
+
+    if (densenetResult != null && densenetResult!.confidence > 0.7) {
+      if (densenetResult!.diagnosis.toLowerCase().contains('pneumonia') ||
+          densenetResult!.diagnosis.toLowerCase().contains('covid')) {
+        if (severity != 'critical') severity = 'moderate';
+      }
+    }
     
     if (documentOCR != null && _containsCriticalKeywords(documentOCR!)) {
-      if (yoloSeverity != 'critical') {
-        yoloSeverity = 'moderate';
+      if (severity != 'critical') {
+        severity = 'moderate';
       }
     }
 
-    return yoloSeverity;
+    return severity;
   }
 
   /// Check if document contains critical findings
@@ -331,11 +359,15 @@ class CombinedAnalysisResult {
   /// Error result
   factory CombinedAnalysisResult.error(String message) => CombinedAnalysisResult(
         yoloDetection: YoloDetectionResult.error(message),
+        densenetResult: null,
         documentOCR: null,
         backendAnalysis: null,
         timestamp: DateTime.now(),
         errorMessage: message,
       );
 
-  bool get isSuccess => errorMessage == null && yoloDetection.isSuccess;
+  bool get isSuccess =>
+      errorMessage == null &&
+      yoloDetection.isSuccess &&
+      (densenetResult?.isSuccess ?? true);
 }

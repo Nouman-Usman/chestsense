@@ -25,7 +25,7 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
   bool _uploading = false;
   bool _analyzing = false;
   String? _errorMsg;
-  MLResponse? _result;
+  CombinedAnalysisResult? _combinedResult;
   String? _imageUrl;
   bool _showHeatmap = false;
 
@@ -37,9 +37,9 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 500));
+        vsync: this, duration: const Duration(milliseconds: 600));
     _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-    _slide = Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
+    _slide = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
     _ctrl.forward();
   }
@@ -52,24 +52,15 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
 
   Future<void> _pick(ImageSource src) async {
     final picker = ImagePicker();
-    // Restrict to image files only (JPEG, PNG)
     final file = await picker.pickImage(
       source: src,
       imageQuality: 90,
-      requestFullMetadata: false,
     );
     if (file == null) return;
     
-    // Validate file extension
-    // final ext = file.path.toLowerCase().split('.').last;
-    // if (!['jpg', 'jpeg', 'png'].contains(ext)) {
-    //   setState(() => _errorMsg = 'Please select a valid image (JPG or PNG)');
-    //   return;
-    // }
-    
     setState(() {
       _xfile = file;
-      _result = null;
+      _combinedResult = null;
       _errorMsg = null;
       _imageUrl = null;
       _showHeatmap = false;
@@ -93,31 +84,43 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
       _uploading = true;
       _analyzing = false;
       _errorMsg  = null;
-      _result    = null;
+      _combinedResult = null;
     });
 
     try {
       final dynamic fileArg = kIsWeb ? _webBytes! : File(_xfile!.path);
+      
+      // 1 – Upload
       final url = await storage.uploadXray(userId: uid, file: fileArg);
       _imageUrl = url;
       setState(() { _uploading = false; _analyzing = true; });
 
-      // Request heatmap for doctor view
-      final response =
-          await ml.analyze(file: fileArg, imageUrl: url, requestHeatmap: true);
-      setState(() { _analyzing = false; _result = response; });
+      // 2 – Execute Local Models (DenseNet + YOLO)
+      final result = await ml.analyzeChestXray(
+        imageFile: fileArg,
+        imageUrl: url,
+        imageWidth: 640,
+        imageHeight: 640,
+        includeDocumentOCR: true,
+      );
 
-      if (response.isSuccess) {
+      setState(() { 
+        _analyzing = false; 
+        _combinedResult = result; 
+      });
+
+      if (result.isSuccess) {
+        // 3 – Save to DB
         await db.saveAnalysisResult(
           patientUid: uid,
           imageUrl: url,
-          diagnosis: response.diagnosis,
-          confidence: response.confidence,
-          classScores: response.classScores,
-          heatmapUrl: response.heatmapUrl,
+          diagnosis: result.densenetResult?.diagnosis ?? result.yoloDetection.primaryAnomaly,
+          confidence: result.densenetResult?.confidence ?? result.yoloDetection.anomalyScore,
+          classScores: result.densenetResult?.classScores ?? {},
+          heatmapUrl: null, // Local heatmap bytes handled in UI
         );
       } else {
-        setState(() => _errorMsg = response.errorMessage);
+        setState(() => _errorMsg = result.errorMessage);
       }
     } catch (e) {
       setState(() {
@@ -131,7 +134,7 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
   // ── Image panel with heatmap overlay ──────────────────────────────────────
   Widget _buildImagePanel() {
     final hasXray    = _imageUrl != null;
-    final hasHeatmap = _result?.heatmapUrl != null;
+    final hasHeatmap = _combinedResult?.densenetResult?.heatmapBytes != null;
     final hasPickedImage = _xfile != null;
 
     if (!hasXray && !hasPickedImage) {
@@ -212,18 +215,31 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
                                     ? const CircularProgressIndicator(
                                         strokeWidth: 2,
                                         color: AppColors.doctorPrimary)
-                                    : child)),
+                                    : child),
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: AppColors.surface,
+                      child: const Center(child: Icon(Icons.error_outline)),
+                    ),
+                ),
                 // Heatmap layer
                 if (hasHeatmap && _showHeatmap)
                   AnimatedOpacity(
-                    opacity: _showHeatmap ? 0.65 : 0,
+                    opacity: _showHeatmap ? 0.7 : 0,
                     duration: const Duration(milliseconds: 300),
-                    child: Image.network(
-                      _result!.heatmapUrl!,
+                    child: Image.memory(
+                      _combinedResult!.densenetResult!.heatmapBytes!,
                       fit: BoxFit.cover,
-                      color: Colors.transparent,
                     ),
                   ),
+                
+                // YOLO Bounding Boxes
+                if (_combinedResult != null && _showHeatmap)
+                   ..._combinedResult!.yoloDetection.detections.map((det) {
+                     final bounds = det.getBounds();
+                     // Note: You'd need to scale these to the UI container size
+                     return const SizedBox.shrink(); // Simplified for now
+                   }),
+
                 // Label
                 Positioned(
                   top: 10,
@@ -253,13 +269,19 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
     );
   }
 
-  Widget _buildResultCard(MLResponse res) {
+  Widget _buildResultCard(CombinedAnalysisResult res) {
     if (!res.isSuccess) {
       return _ErrorCard(message: res.errorMessage ?? 'Unknown error');
     }
 
-    final pct = (res.confidence * 100).toStringAsFixed(1);
-    Color diagColor = res.diagnosis.toLowerCase().contains('normal')
+    final densenet = res.densenetResult;
+    final yolo = res.yoloDetection;
+    
+    final diagnosis = densenet?.diagnosis ?? yolo.primaryAnomaly;
+    final confidence = densenet?.confidence ?? yolo.anomalyScore;
+    final pct = (confidence * 100).toStringAsFixed(1);
+    
+    Color diagColor = diagnosis.toLowerCase().contains('normal')
         ? Colors.greenAccent.shade400
         : Colors.orangeAccent;
 
@@ -270,7 +292,7 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
           Row(children: [
             Icon(Icons.task_alt_rounded, color: _accent, size: 18),
             const SizedBox(width: 8),
-            Text('Diagnostic Report',
+            Text('Diagnostic Report (Local AI)',
                 style: AppText.label.copyWith(color: _accent)),
           ]),
           const SizedBox(height: 16),
@@ -282,7 +304,7 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
               borderRadius: BorderRadius.circular(AppRadius.xxl),
               border: Border.all(color: diagColor.withAlpha(80)),
             ),
-            child: Text(res.diagnosis,
+            child: Text(diagnosis,
                 style: AppText.headingMd.copyWith(color: diagColor)),
           ),
           const SizedBox(height: 16),
@@ -293,27 +315,44 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
           ClipRRect(
             borderRadius: BorderRadius.circular(AppRadius.xxl),
             child: LinearProgressIndicator(
-              value: res.confidence,
+              value: confidence,
               minHeight: 8,
               backgroundColor: AppColors.border,
               valueColor: AlwaysStoppedAnimation(_accent),
             ),
           ),
-          if (res.classScores.isNotEmpty) ...[
+          
+          if (densenet != null && densenet.classScores.isNotEmpty) ...[
             const SizedBox(height: 16),
             const Divider(color: AppColors.border, height: 1),
             const SizedBox(height: 12),
-            Text('Differential diagnosis',
+            Text('Differential diagnosis (DenseNet)',
                 style: AppText.caption
                     .copyWith(color: AppColors.textMuted)),
             const SizedBox(height: 8),
-            ...res.classScores.entries.map((e) => Padding(
+            ...densenet.classScores.entries.take(4).map((e) => Padding(
                   padding: const EdgeInsets.only(bottom: 6),
                   child: _ScoreRow(label: e.key, value: e.value),
                 )),
           ],
+
+          if (yolo.detections.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(color: AppColors.border, height: 1),
+            const SizedBox(height: 12),
+            Text('Segmented findings (YOLO)',
+                style: AppText.caption
+                    .copyWith(color: AppColors.textMuted)),
+            const SizedBox(height: 8),
+            ...yolo.detections.take(3).map((d) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text('• ${d.className} at (${d.x.toInt()}, ${d.y.toInt()})',
+                  style: AppText.caption.copyWith(color: AppColors.textSecondary)),
+            )),
+          ],
+
           // Heatmap note for doctor
-          if (res.heatmapUrl != null) ...[
+          if (densenet?.heatmapBytes != null) ...[
             const SizedBox(height: 16),
             const Divider(color: AppColors.border, height: 1),
             const SizedBox(height: 12),
@@ -321,9 +360,11 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
               Icon(Icons.thermostat_outlined,
                   color: AppColors.textSecondary, size: 16),
               const SizedBox(width: 8),
-              Text('Toggle heatmap overlay above to inspect activation regions',
-                  style: AppText.caption
-                      .copyWith(color: AppColors.textSecondary)),
+              Expanded(
+                child: Text('Toggle heatmap overlay above to inspect activation regions',
+                    style: AppText.caption
+                        .copyWith(color: AppColors.textSecondary)),
+              ),
             ]),
           ],
         ],

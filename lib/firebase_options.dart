@@ -2,7 +2,8 @@ import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
-/// Default [FirebaseOptions] 
+/// Default [FirebaseOptions] for use with your Firebase apps.
+
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
@@ -33,21 +34,21 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'YOUR_WEB_API_KEY',
-    appId: 'YOUR_WEB_APP_ID',
-    messagingSenderId: 'YOUR_WEB_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
-    storageBucket: 'YOUR_PROJECT_ID.firebasestorage.app',
-    measurementId: 'YOUR_MEASUREMENT_ID',
+    apiKey: 'AIzaSyCvVS8alrE1Ir-EnuHY9j4aKn2l-VQ38JY',
+    appId: '1:607456316264:web:63324bad7236461296a4dd',
+    messagingSenderId: '607456316264',
+    projectId: 'chestsense-d7abc',
+    authDomain: 'chestsense-d7abc.firebaseapp.com',
+    storageBucket: 'chestsense-d7abc.firebasestorage.app',
+    measurementId: 'G-8PB9F4N7QF',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'YOUR_ANDROID_API_KEY',
-    appId: 'YOUR_ANDROID_APP_ID',
-    messagingSenderId: 'YOUR_ANDROID_MESSAGING_SENDER_ID',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.firebasestorage.app',
+    apiKey: 'AIzaSyC-bXwSHZpC4qjYggXt11jXnyIlIQ4xxS4',
+    appId: '1:607456316264:android:150165b42661db3496a4dd',
+    messagingSenderId: '607456316264',
+    projectId: 'chestsense-d7abc',
+    storageBucket: 'chestsense-d7abc.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
