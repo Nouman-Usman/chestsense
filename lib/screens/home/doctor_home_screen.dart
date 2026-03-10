@@ -68,7 +68,6 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header ──────────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
                 child: Row(
@@ -107,7 +106,6 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen>
               ),
               const SizedBox(height: 28),
 
-              // ── Hero CTA ─────────────────────────────────────────────────
               FadeSlideIn(
                 delay: const Duration(milliseconds: 80),
                 child: Padding(
@@ -117,7 +115,6 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen>
               ),
               const SizedBox(height: 28),
 
-              // ── AI Analyses section ───────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: FadeSlideIn(
@@ -137,7 +134,6 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen>
               ),
               const SizedBox(height: 14),
 
-              // ── Analyses stream ─────────────────────────────────────────────
               Expanded(
                 child: FadeSlideIn(
                   delay: const Duration(milliseconds: 220),
@@ -172,7 +168,6 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen>
         ),
       ),
 
-      // ── FAB ───────────────────────────────────────────────────────────────
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _goToAnalyze,
         backgroundColor: _accent,
@@ -185,7 +180,6 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen>
   }
 }
 
-// ─── Hero CTA Card ────────────────────────────────────────────────────────────
 
 class _HeroCta extends StatelessWidget {
   final Color accent;
@@ -286,7 +280,6 @@ class _HeroCta extends StatelessWidget {
   }
 }
 
-// ─── Analysis Card ────────────────────────────────────────────────────────────
 
 class _AnalysisCard extends StatelessWidget {
   final Map<String, dynamic> data;
@@ -366,7 +359,6 @@ class _AnalysisCard extends StatelessWidget {
   }
 }
 
-// ─── Empty state ──────────────────────────────────────────────────────────────
 
 class _EmptyAnalyses extends StatelessWidget {
   const _EmptyAnalyses();

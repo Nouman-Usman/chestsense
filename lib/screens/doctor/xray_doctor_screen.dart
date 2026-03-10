@@ -1,8 +1,10 @@
-import 'dart:io';
+import 'dart:convert';
+import 'dart:io' as io;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import '../../theme/app_theme.dart';
 import '../../services/firebase_auth_service.dart';
 import '../../services/firebase_db_service.dart';
@@ -19,14 +21,32 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
     with SingleTickerProviderStateMixin {
   static const _accent = AppColors.doctorPrimary;
 
+  static const List<String> _testImages = [
+    'test-images/Class_A_A0038_1.3.6.1.4.1.14519.5.2.1.6655.2359.200964933229773819858342958376.png',
+    'test-images/Class_A_A0112_1.3.6.1.4.1.14519.5.2.1.6655.2359.133514946679481457237095867057.png',
+    'test-images/Class_A_A0135_1.3.6.1.4.1.14519.5.2.1.6655.2359.229546735729215903345807275212.png',
+    'test-images/Class_B_B0012_1.3.6.1.4.1.14519.5.2.1.6655.2359.251928415045889960528301518132.png',
+    'test-images/Class_B_B0019_1.3.6.1.4.1.14519.5.2.1.6655.2359.542688158494865904457546511093.png',
+    'test-images/Class_B_B0038_1.3.6.1.4.1.14519.5.2.1.6655.2359.241194015321121397721615046131.png',
+    'test-images/Class_E_E0004_1.3.6.1.4.1.14519.5.2.1.6655.2359.258085984221221292325353998664.png',
+    'test-images/Class_E_E0004_1.3.6.1.4.1.14519.5.2.1.6655.2359.319078072563246713259486471363.png',
+    'test-images/Class_E_E0004_1.3.6.1.4.1.14519.5.2.1.6655.2359.501875774437494706086763872552.png',
+    'test-images/Class_G_G0002_1.3.6.1.4.1.14519.5.2.1.6655.2359.250157524168081247720689697171.png',
+    'test-images/Class_G_G0048_1.3.6.1.4.1.14519.5.2.1.6655.2359.132679891311395561463279459011.png',
+    'test-images/Class_G_G0056_1.3.6.1.4.1.14519.5.2.1.6655.2359.250923355059840684410808786741.png',
+  ];
+
   XFile? _xfile;
-  Uint8List? _webBytes;
-  bool _uploading = false;
+  Uint8List? _memoryBytes;
+  bool _isAsset = false;
   bool _analyzing = false;
   String? _errorMsg;
-  CombinedAnalysisResult? _combinedResult;
-  String? _imageUrl;
+  String? _statusMsg;
+  
+  ValidateCTResponse? _validationResult;
+  AnalysisResponse? _analysisResult;
   bool _showHeatmap = false;
+  bool _showDetections = true;
 
   late AnimationController _ctrl;
   late Animation<double> _fade;
@@ -59,15 +79,69 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
     
     setState(() {
       _xfile = file;
-      _combinedResult = null;
+      _validationResult = null;
+      _analysisResult = null;
       _errorMsg = null;
-      _imageUrl = null;
+      _statusMsg = null;
       _showHeatmap = false;
+      _isAsset = false;
     });
     if (kIsWeb) {
-      _webBytes = await file.readAsBytes();
+      _memoryBytes = await file.readAsBytes();
       setState(() {});
     }
+  }
+
+  void _showTestPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.bg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Select Testing Sample', style: AppText.headingMd),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 300,
+              child: ListView.separated(
+                itemCount: _testImages.length,
+                separatorBuilder: (_, __) => const Divider(color: AppColors.border),
+                itemBuilder: (context, index) {
+                  final path = _testImages[index];
+                  final name = path.split('/').last;
+                  return ListTile(
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: Image.asset(path, width: 40, height: 40, fit: BoxFit.cover),
+                    ),
+                    title: Text(name, style: AppText.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
+                    onTap: () async {
+                      Navigator.pop(context);
+                      final bytes = await rootBundle.load(path);
+                      setState(() {
+                        _xfile = XFile(path);
+                        _memoryBytes = bytes.buffer.asUint8List();
+                        _isAsset = true;
+                        _validationResult = null;
+                        _analysisResult = null;
+                        _showHeatmap = false;
+                        _errorMsg = null;
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _analyzeXray() async {
@@ -79,46 +153,41 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
     final uid     = auth.currentUser?.uid ?? 'anon';
 
     setState(() {
-      _uploading = false;
       _analyzing = true;
       _errorMsg  = null;
-      _combinedResult = null;
+      _statusMsg = 'Validating scan...';
+      _analysisResult = null;
     });
 
     try {
-      final dynamic fileArg = kIsWeb ? _webBytes! : File(_xfile!.path);
+      final dynamic fileArg = (_isAsset || kIsWeb) ? _memoryBytes : io.File(_xfile!.path);
       
-      // 1. Try Backend AI (Port 5001 - Grad-CAM + Prediction)
-      final isHealthy = await ml.checkHealth();
-      CombinedAnalysisResult result;
-
-      if (isHealthy && !kIsWeb) {
-        debugPrint('Using Backend AI Analysis...');
-        result = await ml.analyzeWithBackend(File(_xfile!.path));
-      } else {
-        // 2. Fallback to Local Models (DenseNet)
-        debugPrint('Backend offline or Web. Using Local AI...');
-        result = await ml.analyzeChestXray(
-          imageFile: fileArg,
-          imageWidth: 640,
-          imageHeight: 640,
-          includeDocumentOCR: true,
-        );
+      final validation = await ml.validateCT(fileArg);
+      if (!validation.isCTScan) {
+        setState(() {
+          _validationResult = validation;
+          _analyzing = false;
+        });
+        return;
       }
+
+      setState(() => _statusMsg = 'AI analyzing (YOLO + DenseNet)...');
+      final result = await ml.analyzeWithBackend(fileArg);
 
       setState(() { 
         _analyzing = false; 
-        _combinedResult = result; 
+        _statusMsg = null;
+        _analysisResult = result; 
       });
 
       if (result.isSuccess) {
-        // Save to DB (without cloud image URL)
+        // Save to DB
         await db.saveAnalysisResult(
           patientUid: uid,
           imageUrl: null,
-          diagnosis: result.densenetResult?.diagnosis ?? 'Normal / Unclassified',
-          confidence: result.densenetResult?.confidence ?? 0.0,
-          classScores: result.densenetResult?.classScores ?? {},
+          diagnosis: result.diagnosis,
+          confidence: result.confidence,
+          classScores: result.detections.isNotEmpty ? result.detections.first.allConfidences : {},
           heatmapUrl: null,
         );
       } else {
@@ -127,102 +196,88 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
     } catch (e) {
       setState(() {
         _analyzing = false;
+        _statusMsg = null;
         _errorMsg  = e.toString();
       });
     }
   }
 
-  // ── Image panel with heatmap overlay ──────────────────────────────────────
   Widget _buildImagePanel() {
-    final hasXray    = _imageUrl != null;
-    final hasHeatmap = _combinedResult?.densenetResult?.heatmapBytes != null;
+    final hasResult = _analysisResult?.isSuccess ?? false;
+    final hasHeatmap = _analysisResult?.heatmapImage.isNotEmpty ?? false;
+    final hasDetections = _analysisResult?.detectionImage.isNotEmpty ?? false;
     final hasPickedImage = _xfile != null;
 
     if (!hasPickedImage) {
       return _PickArea(onTap: () => _pick(ImageSource.gallery));
     }
 
-    // Show preview of picked image before upload
-    if (hasPickedImage && !hasXray) {
-      return GestureDetector(
-        onTap: () => _pick(ImageSource.gallery),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(AppRadius.xl),
-          child: SizedBox(
-            height: 240,
-            child: kIsWeb
-                ? Image.memory(_webBytes!,
-                    fit: BoxFit.cover,
-                    frameBuilder: (_, child, frame, wasSynchronouslyLoaded) =>
-                        wasSynchronouslyLoaded
-                            ? child
-                            : Center(
-                                child: frame == null
-                                    ? const CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: AppColors.doctorPrimary)
-                                    : child))
-                : Image.file(File(_xfile!.path),
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      color: AppColors.surface,
-                      child: const Center(
-                        child: Icon(Icons.broken_image_outlined,
-                            color: AppColors.textMuted),
-                      ),
-                    )),
-          ),
-        ),
-      );
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Heatmap toggle (only shown when heatmap is available)
-        if (hasHeatmap)
+        if (hasResult)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Text('Heatmap overlay',
+                if (hasDetections) ...[
+                   Text('Show Boxes',
                     style: AppText.caption
                         .copyWith(color: AppColors.textSecondary)),
-                const SizedBox(width: 8),
-                Switch(
-                  value: _showHeatmap,
-                  activeThumbColor: _accent,
-                  onChanged: (v) => setState(() => _showHeatmap = v),
-                ),
+                  Switch(
+                    value: _showDetections,
+                    activeThumbColor: _accent,
+                    onChanged: (v) => setState(() => _showDetections = v),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                if (hasHeatmap) ...[
+                  Text('Heatmap',
+                      style: AppText.caption
+                          .copyWith(color: AppColors.textSecondary)),
+                  Switch(
+                    value: _showHeatmap,
+                    activeThumbColor: _accent,
+                    onChanged: (v) => setState(() {
+                      _showHeatmap = v;
+                      if (v) _showDetections = false;
+                    }),
+                  ),
+                ],
               ],
             ),
           ),
         ClipRRect(
           borderRadius: BorderRadius.circular(AppRadius.xl),
           child: SizedBox(
-            height: 240,
+            height: 280,
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // Base X-ray image (Local)
-                kIsWeb 
-                    ? Image.memory(_webBytes!, fit: BoxFit.cover)
-                    : Image.file(File(_xfile!.path), fit: BoxFit.cover),
-                // Heatmap layer (Superimposed from backend)
+                // Base image
+                (_isAsset || kIsWeb || _memoryBytes != null)
+                    ? Image.memory(_memoryBytes!, fit: BoxFit.cover)
+                    : Image.file(io.File(_xfile!.path), fit: BoxFit.cover),
+                
+                // Detection layer (YOLO boxes)
+                if (hasDetections && _showDetections)
+                  Image.memory(
+                    base64Decode(_analysisResult!.detectionImage),
+                    fit: BoxFit.cover,
+                  ),
+
+                // Heatmap overlay
                 if (hasHeatmap)
                   AnimatedOpacity(
                     opacity: _showHeatmap ? 1.0 : 0.0,
                     duration: const Duration(milliseconds: 300),
                     child: Image.memory(
-                      _combinedResult!.densenetResult!.heatmapBytes!,
+                      base64Decode(_analysisResult!.heatmapImage),
                       fit: BoxFit.cover,
                     ),
                   ),
                 
-
-
-                // Label
                 Positioned(
                   top: 10,
                   left: 10,
@@ -237,8 +292,8 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
                     ),
                     child: Text(
                         _showHeatmap && hasHeatmap
-                            ? 'Heatmap view'
-                            : 'X-Ray',
+                            ? 'Heatmap View'
+                            : (_showDetections && hasDetections ? 'Detection View' : 'Original X-Ray'),
                         style: AppText.caption
                             .copyWith(color: AppColors.textSecondary)),
                   ),
@@ -251,16 +306,13 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
     );
   }
 
-  Widget _buildResultCard(CombinedAnalysisResult res) {
+  Widget _buildResultCard(AnalysisResponse res) {
     if (!res.isSuccess) {
       return _ErrorCard(message: res.errorMessage ?? 'Unknown error');
     }
 
-    final densenet = res.densenetResult;
-    
-    final diagnosis = densenet?.diagnosis ?? 'Normal / Unclassified';
-    final confidence = densenet?.confidence ?? 0.0;
-    final pct = (confidence * 100).toStringAsFixed(1);
+    final diagnosis = res.diagnosis;
+    final confidence = res.confidence;
     
     Color diagColor;
     final diagLower = diagnosis.toLowerCase();
@@ -277,9 +329,9 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(children: [
-            Icon(Icons.task_alt_rounded, color: _accent, size: 18),
+            Icon(Icons.cloud_done_outlined, color: _accent, size: 18),
             const SizedBox(width: 8),
-            Text('Diagnostic Report (Local DenseNet)',
+            Text('Diagnostic Report (Cloud AI)',
                 style: AppText.label.copyWith(color: _accent)),
           ]),
           const SizedBox(height: 16),
@@ -295,7 +347,7 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
                 style: AppText.headingMd.copyWith(color: diagColor)),
           ),
           const SizedBox(height: 16),
-          Text('Confidence: $pct%',
+          Text('Combined Confidence: ${(confidence * 100).toStringAsFixed(1)}%',
               style:
                   AppText.caption.copyWith(color: AppColors.textSecondary)),
           const SizedBox(height: 6),
@@ -308,26 +360,37 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
               valueColor: AlwaysStoppedAnimation(_accent),
             ),
           ),
-          
-          if (densenet != null && densenet.classScores.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Divider(color: AppColors.border, height: 1),
+
+          if (res.detections.isNotEmpty) ...[
+            const SizedBox(height: 20),
+            const Divider(color: AppColors.border),
             const SizedBox(height: 12),
-            Text('Differential diagnosis (DenseNet)',
-                style: AppText.caption
-                    .copyWith(color: AppColors.textMuted)),
+            Text('Detected Tumors (${res.tumorsDetected})',
+                style: AppText.caption.copyWith(color: AppColors.textMuted)),
             const SizedBox(height: 8),
-            ...densenet.classScores.entries.take(4).map((e) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: _ScoreRow(label: e.key, value: e.value),
-                )),
+            ...res.detections.map((d) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Tumor #${d.tumorId}: ${d.prediction}', 
+                          style: AppText.label.copyWith(fontSize: 12)),
+                      Text('${d.confidence.toStringAsFixed(1)}%', 
+                          style: AppText.caption.copyWith(color: _accent)),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  // Small crop preview if needed, but we have detection image above
+                ],
+              ),
+            )),
           ],
 
-
-
-          // Heatmap note for doctor
-          if (densenet?.heatmapBytes != null) ...[
-            const SizedBox(height: 16),
+          if (res.heatmapImage.isNotEmpty) ...[
+            const SizedBox(height: 8),
             const Divider(color: AppColors.border, height: 1),
             const SizedBox(height: 12),
             Row(children: [
@@ -357,7 +420,6 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
           child: SafeArea(
             child: Column(
               children: [
-                // Top bar
                 Padding(
                   padding: const EdgeInsets.fromLTRB(8, 16, 24, 0),
                   child: Row(children: [
@@ -375,10 +437,10 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
                       child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('X-Ray Analysis',
+                            Text('Doctor Analysis',
                                 style: AppText.headingMd.copyWith(
                                     color: AppColors.textPrimary)),
-                            Text('AI diagnosis with heatmap overlay',
+                            Text('Cloud YOLO + DenseNet Pipeline',
                                 style: AppText.caption.copyWith(
                                     color: AppColors.textMuted)),
                           ]),
@@ -395,8 +457,7 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
                       children: [
                         _buildImagePanel(),
                         const SizedBox(height: 14),
-                        // Source buttons (shown before upload)
-                        if (_imageUrl == null)
+                        if (_analysisResult == null)
                           Row(children: [
                             Expanded(
                               child: _SourceBtn(
@@ -417,18 +478,26 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
                                 ),
                               ),
                             ],
+                            const SizedBox(width: 12),
+                            Expanded(child: _SourceBtn(
+                              icon: Icons.biotech_outlined,
+                              label: 'Samples',
+                              accent: Colors.orangeAccent,
+                              onTap: _showTestPicker,
+                            )),
                           ]),
-                        // Re-scan after result
-                        if (_combinedResult != null) ...[
+                        if (_analysisResult != null) ...[
                           const SizedBox(height: 8),
                           OutlinedButton.icon(
                             onPressed: () => setState(() {
                               _xfile = null;
-                              _webBytes = null;
-                              _combinedResult = null;
-                              _imageUrl = null;
+                              _memoryBytes = null;
+                              _isAsset = false;
+                              _validationResult = null;
+                              _analysisResult = null;
                               _errorMsg = null;
                               _showHeatmap = false;
+                              _statusMsg = null;
                             }),
                             style: OutlinedButton.styleFrom(
                               side: BorderSide(
@@ -439,36 +508,33 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
                                       AppRadius.md)),
                             ),
                             icon: const Icon(Icons.refresh_rounded, size: 18),
-                            label: const Text('New scan'),
+                            label: const Text('New Scan'),
                           ),
                         ],
                         const SizedBox(height: 16),
                         if (_errorMsg != null) _ErrorCard(message: _errorMsg!),
-                        if (_uploading)
-                          _StatusTile(
-                              icon: Icons.cloud_upload_outlined,
-                              label: 'Uploading image…',
-                              accent: _accent),
                         if (_analyzing)
                           _StatusTile(
-                              icon: Icons.psychology_outlined,
-                              label: 'AI model analyzing…',
+                               icon: Icons.biotech_outlined,
+                              label: _statusMsg ?? 'Cloud AI analyzing…',
                               accent: _accent),
-                        if (_combinedResult != null) ...[
+                        if (_validationResult != null && !_validationResult!.isCTScan)
+                          _ValidationFailedCard(res: _validationResult!),
+                        if (_analysisResult != null) ...[
                           const SizedBox(height: 4),
-                          _buildResultCard(_combinedResult!),
+                          _buildResultCard(_analysisResult!),
                         ],
                       ],
                     ),
                   ),
                 ),
-                if (_combinedResult == null)
+                if (_analysisResult == null)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                     child: PrimaryButton(
-                      label: 'Analyse X-Ray',
+                      label: 'Run AI Diagnostics',
                       color: _accent,
-                      isLoading: _uploading || _analyzing,
+                      isLoading: _analyzing,
                       onPressed: _xfile == null ? null : _analyzeXray,
                       trailingIcon: Icons.biotech_outlined,
                     ),
@@ -481,8 +547,6 @@ class _XrayDoctorScreenState extends State<XrayDoctorScreen>
     );
   }
 }
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
 
 class _PickArea extends StatelessWidget {
   final VoidCallback onTap;
@@ -506,11 +570,11 @@ class _PickArea extends StatelessWidget {
                 size: 48,
                 color: AppColors.doctorPrimary.withAlpha(180)),
             const SizedBox(height: 12),
-            Text('Tap to select chest X-ray',
+            Text('Tap to select CT image',
                 style: AppText.label
                     .copyWith(color: AppColors.textSecondary)),
             const SizedBox(height: 4),
-            Text('JPG / PNG · Max 10 MB',
+            Text('CT Scan · JPG / PNG',
                 style: AppText.caption
                     .copyWith(color: AppColors.textMuted)),
           ],
@@ -604,36 +668,39 @@ class _ErrorCard extends StatelessWidget {
   }
 }
 
-class _ScoreRow extends StatelessWidget {
-  final String label;
-  final double value;
-  const _ScoreRow({required this.label, required this.value});
+class _ValidationFailedCard extends StatelessWidget {
+  final ValidateCTResponse res;
+  const _ValidationFailedCard({required this.res});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(label,
-              style: AppText.caption
-                  .copyWith(color: AppColors.textSecondary)),
-          Text('${(value * 100).toStringAsFixed(1)}%',
-              style: AppText.caption
-                  .copyWith(color: AppColors.textMuted)),
-        ]),
-        const SizedBox(height: 4),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(AppRadius.xxl),
-          child: LinearProgressIndicator(
-            value: value,
-            minHeight: 4,
-            backgroundColor: AppColors.border,
-            valueColor:
-                const AlwaysStoppedAnimation(AppColors.doctorPrimary),
+    return AppCard(
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.redAccent.withAlpha(20),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.block_flipped, color: Colors.redAccent, size: 32),
           ),
-        ),
-      ],
+          const SizedBox(height: 16),
+          Text('Invalid Image Format', style: AppText.headingMd.copyWith(color: Colors.redAccent)),
+          const SizedBox(height: 8),
+          Text(
+            res.message,
+            textAlign: TextAlign.center,
+            style: AppText.caption.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 16),
+          const Divider(color: AppColors.border),
+          const SizedBox(height: 8),
+          Text('The AI pre-validator rejected this scan. Please ensure the image is a grayscale CT scan with minimal artifacts.',
+              textAlign: TextAlign.center,
+              style: AppText.caption.copyWith(color: AppColors.textMuted, fontSize: 10)),
+        ],
+      ),
     );
   }
 }

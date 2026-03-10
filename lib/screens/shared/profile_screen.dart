@@ -125,7 +125,6 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _changePassword() async {
-    // Get all dependencies upfront
     final auth = context.read<FirebaseAuthService>();
     final messenger = ScaffoldMessenger.of(context);
 
@@ -285,7 +284,6 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _deleteAccount() async {
-    // Get all dependencies upfront
     final auth = context.read<FirebaseAuthService>();
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
@@ -375,7 +373,6 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
-  // ── Build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final role = _profile?['role'] as String? ?? 'patient';
@@ -392,7 +389,6 @@ class _ProfileScreenState extends State<ProfileScreen>
           child: SafeArea(
             child: Column(
               children: [
-                // ── Top bar ────────────────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.fromLTRB(8, 16, 24, 0),
                   child: Row(children: [
@@ -412,7 +408,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ]),
                 ),
                 const SizedBox(height: 8),
-                // ── Body ───────────────────────────────────────────────────
                 Expanded(
                   child: _loading
                       ? Center(
@@ -427,7 +422,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                             children: [
                               _buildAvatar(role, accent),
                               const SizedBox(height: 28),
-                              // ── Editable fields ──────────────────────────
                               _SectionHeader(label: 'Personal information'),
                               const SizedBox(height: 12),
                               AppTextField(
@@ -447,7 +441,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 accent: accent,
                               ),
                               const SizedBox(height: 24),
-                              // ── Read-only info ──────────────────────────
                               _SectionHeader(label: 'Account details'),
                               const SizedBox(height: 12),
                               _InfoTile(
@@ -493,7 +486,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 ),
                               ],
                               const SizedBox(height: 32),
-                              // ── Save button ──────────────────────────────
                               PrimaryButton(
                                 label: 'Save changes',
                                 color: accent,
@@ -502,7 +494,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 trailingIcon: Icons.save_outlined,
                               ),
                               const SizedBox(height: 12),
-                              // ── Change password ─────────────────────────
                               OutlinedButton.icon(
                                 onPressed: _changePassword,
                                 style: OutlinedButton.styleFrom(
@@ -520,7 +511,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 label: const Text('Change Password'),
                               ),
                               const SizedBox(height: 12),
-                              // ── Delete account  ─────────────────────────
                               OutlinedButton.icon(
                                 onPressed: _deleteAccount,
                                 style: OutlinedButton.styleFrom(
@@ -539,7 +529,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                                 label: const Text('Delete Account'),
                               ),
                               const SizedBox(height: 12),
-                              // ── Sign out ─────────────────────────────────
                               OutlinedButton.icon(
                                 onPressed: _signOut,
                                 style: OutlinedButton.styleFrom(
@@ -608,7 +597,6 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 }
 
-// ── Helper widgets ─────────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
   final String label;

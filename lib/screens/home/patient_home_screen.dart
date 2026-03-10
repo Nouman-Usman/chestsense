@@ -38,7 +38,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen>
   void _goToScan() {
     Navigator.of(context).push(
       PageRouteBuilder(
-        pageBuilder: (ctx, anim, _) => const XrayUploadScreen(),
+        pageBuilder: (ctx, anim, _) => const XrayUploadScreen(userRole: 'patient'),
         transitionsBuilder: (ctx, anim, _, child) =>
             FadeTransition(opacity: anim, child: child),
       ),
@@ -71,7 +71,6 @@ class _PatientHomeScreenState extends State<PatientHomeScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header ──────────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
                 child: Row(
@@ -110,7 +109,6 @@ class _PatientHomeScreenState extends State<PatientHomeScreen>
               ),
               const SizedBox(height: 28),
 
-              // ── Hero CTA ─────────────────────────────────────────────────
               FadeSlideIn(
                 delay: const Duration(milliseconds: 80),
                 child: Padding(
@@ -120,7 +118,6 @@ class _PatientHomeScreenState extends State<PatientHomeScreen>
               ),
               const SizedBox(height: 28),
 
-              // ── Section title ─────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: FadeSlideIn(
@@ -137,7 +134,6 @@ class _PatientHomeScreenState extends State<PatientHomeScreen>
               ),
               const SizedBox(height: 14),
 
-              // ── Recent scans stream ───────────────────────────────────────
               Expanded(
                 child: FadeSlideIn(
                   delay: const Duration(milliseconds: 220),
@@ -171,7 +167,6 @@ class _PatientHomeScreenState extends State<PatientHomeScreen>
         ),
       ),
 
-      // ── FAB ───────────────────────────────────────────────────────────────
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _goToScan,
         backgroundColor: _accent,
@@ -184,7 +179,6 @@ class _PatientHomeScreenState extends State<PatientHomeScreen>
   }
 }
 
-// ─── Hero CTA Card ────────────────────────────────────────────────────────────
 
 class _HeroCta extends StatelessWidget {
   final Color accent;
@@ -279,7 +273,6 @@ class _HeroCta extends StatelessWidget {
   }
 }
 
-// ─── Scan History Card ────────────────────────────────────────────────────────
 
 class _ScanCard extends StatelessWidget {
   final Map<String, dynamic> data;
@@ -359,7 +352,6 @@ class _ScanCard extends StatelessWidget {
   }
 }
 
-// ─── Empty state ──────────────────────────────────────────────────────────────
 
 class _EmptyScans extends StatelessWidget {
   const _EmptyScans();

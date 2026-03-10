@@ -217,7 +217,6 @@ class FirebaseDbService {
     }
   }
 
-  // ── X-Ray Analysis ─────────────────────────────────────────────────────────
 
   /// Persist an analysis result under the patient's subcollection.
   Future<String> saveAnalysisResult({
@@ -267,7 +266,6 @@ class FirebaseDbService {
     return snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
   }
 
-  // Get user role (doctor or patient)
   Future<String?> getUserRole(String uid) async {
     try {
       final doc = await _firestore.collection('users').doc(uid).get();
