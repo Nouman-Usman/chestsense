@@ -29,6 +29,14 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  
+  // Doctor-specific controllers
+  final _specializationCtrl = TextEditingController();
+  final _licenseCtrl = TextEditingController();
+  
+  // Patient-specific controllers
+  final _ageCtrl = TextEditingController();
+  String _selectedGender = 'male';
 
   late AnimationController _ctrl;
   late Animation<double> _fade;
@@ -50,6 +58,9 @@ class _ProfileScreenState extends State<ProfileScreen>
     _ctrl.dispose();
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
+    _specializationCtrl.dispose();
+    _licenseCtrl.dispose();
+    _ageCtrl.dispose();
     super.dispose();
   }
 
@@ -64,6 +75,19 @@ class _ProfileScreenState extends State<ProfileScreen>
       _profile = data;
       _nameCtrl.text = data?['displayName'] ?? '';
       _phoneCtrl.text = data?['phone'] ?? '';
+      
+      // Load doctor-specific fields
+      if (data?['role'] == 'doctor') {
+        _specializationCtrl.text = data?['specialization'] ?? '';
+        _licenseCtrl.text = data?['licenseNumber'] ?? '';
+      }
+      
+      // Load patient-specific fields
+      if (data?['role'] == 'patient') {
+        _ageCtrl.text = data?['age']?.toString() ?? '';
+        _selectedGender = data?['gender'] ?? 'male';
+      }
+      
       _loading = false;
     });
   }
@@ -77,10 +101,31 @@ class _ProfileScreenState extends State<ProfileScreen>
     setState(() => _saving = true);
     try {
       await auth.updateUserProfile(displayName: _nameCtrl.text.trim());
-      await db.updateUserData(uid, {
+      
+      // Build update data based on role
+      final role = _profile?['role'] as String? ?? 'patient';
+      final updateData = <String, dynamic>{
         'displayName': _nameCtrl.text.trim(),
         'phone': _phoneCtrl.text.trim(),
-      });
+      };
+      
+      // Add doctor-specific fields
+      if (role == 'doctor') {
+        updateData['specialization'] = _specializationCtrl.text.trim();
+        updateData['licenseNumber'] = _licenseCtrl.text.trim();
+      }
+      
+      // Add patient-specific fields
+      if (role == 'patient') {
+        final age = int.tryParse(_ageCtrl.text.trim());
+        if (age != null) {
+          updateData['age'] = age;
+        }
+        updateData['gender'] = _selectedGender;
+      }
+      
+      await db.updateUserData(uid, updateData);
+      
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -485,34 +530,38 @@ class _ProfileScreenState extends State<ProfileScreen>
 
                             // Doctor-specific fields
                             if (role == 'doctor') ...[
-                              const SizedBox(height: 10),
-                              _buildInfoTile(
-                                icon: Icons.local_hospital_outlined,
+                              const SizedBox(height: 28),
+                              _buildSectionHeader('Professional Information'),
+                              const SizedBox(height: 12),
+                              _buildTextField(
+                                controller: _specializationCtrl,
                                 label: 'Specialization',
-                                value: _profile?['specialization'] ?? '—',
+                                icon: Icons.local_hospital_outlined,
+                                accent: accent,
                               ),
-                              const SizedBox(height: 10),
-                              _buildInfoTile(
+                              const SizedBox(height: 12),
+                              _buildTextField(
+                                controller: _licenseCtrl,
+                                label: 'Medical License Number',
                                 icon: Icons.verified_outlined,
-                                label: 'Medical License',
-                                value: _profile?['licenseNumber'] ?? '—',
+                                accent: accent,
                               ),
                             ],
 
                             // Patient-specific fields
                             if (role == 'patient') ...[
-                              const SizedBox(height: 10),
-                              _buildInfoTile(
-                                icon: Icons.cake_outlined,
+                              const SizedBox(height: 28),
+                              _buildSectionHeader('Personal Details'),
+                              const SizedBox(height: 12),
+                              _buildTextField(
+                                controller: _ageCtrl,
                                 label: 'Age',
-                                value: _profile?['age']?.toString() ?? '—',
+                                icon: Icons.cake_outlined,
+                                accent: accent,
+                                keyboardType: TextInputType.number,
                               ),
-                              const SizedBox(height: 10),
-                              _buildInfoTile(
-                                icon: Icons.wc_outlined,
-                                label: 'Gender',
-                                value: _profile?['gender'] ?? '—',
-                              ),
+                              const SizedBox(height: 12),
+                              _buildGenderSelector(accent),
                             ],
 
                             const SizedBox(height: 32),
@@ -845,6 +894,80 @@ class _ProfileScreenState extends State<ProfileScreen>
           hintStyle: const TextStyle(color: _textMuted, fontSize: 14),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGenderSelector(Color accent) {
+    return Container(
+      decoration: BoxDecoration(
+        color: _surfaceColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _borderColor),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.wc_outlined, color: accent, size: 20),
+              const SizedBox(width: 12),
+              const Text(
+                'Gender',
+                style: TextStyle(color: _textMuted, fontSize: 14),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildGenderOption('male', 'Male', accent),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildGenderOption('female', 'Female', accent),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildGenderOption('other', 'Other', accent),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGenderOption(String value, String label, Color accent) {
+    final isSelected = _selectedGender == value;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _selectedGender = value;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? accent.withOpacity(0.15) : _bgColor,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? accent : _borderColor,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? accent : _textSecondary,
+              fontSize: 14,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            ),
+          ),
         ),
       ),
     );
