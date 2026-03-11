@@ -133,20 +133,6 @@ class FirebaseAuthService {
     }
   }
 
-  /// Reset password for a user (used after OTP verification)
-  Future<void> resetPasswordWithEmail({
-    required String email,
-    required String newPassword,
-  }) async {
-    try {
-      // This requires the user to be signed in or have a valid session
-      // For forgot password flow, we'll use a temporary sign-in approach
-      await currentUser?.updatePassword(newPassword);
-    } on FirebaseAuthException catch (e) {
-      throw _handleAuthError(e);
-    }
-  }
-
   Future<void> deleteAccount({required String password}) async {
     try {
       final user = currentUser;
