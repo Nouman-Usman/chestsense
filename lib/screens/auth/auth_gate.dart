@@ -4,12 +4,9 @@ import '../../services/firebase_auth_service.dart';
 import '../../services/firebase_db_service.dart';
 import '../../theme/app_theme.dart';
 import 'welcome_screen.dart';
-import '../home/doctor_home_screen.dart';
-import '../home/patient_home_screen.dart';
+import '../dashboards/dashboards.dart';
 
-/// Auth gate widget that routes users based on authentication state
-/// - If authenticated: loads user role from Firestore and navigates to home screen
-/// - If not authenticated: shows welcome screen
+/// Auth gate with role-based routing
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -23,17 +20,13 @@ class _AuthGateState extends State<AuthGate> {
   @override
   void initState() {
     super.initState();
-    // Give Firebase Auth time to restore persisted session from device storage
-    // This is essential for maintaining user sessions between app restarts
-    _initFuture = Future.delayed(const Duration(milliseconds: 1000));
+    _initFuture = Future.delayed(const Duration(milliseconds: 800));
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.read<FirebaseAuthService>();
-    final db = context.read<FirebaseDbService>();
 
-    // Wait for Firebase to check for persisted session
     return FutureBuilder(
       future: _initFuture,
       builder: (context, initSnapshot) {
@@ -41,72 +34,31 @@ class _AuthGateState extends State<AuthGate> {
           return _buildLoadingScreen();
         }
 
-        // After init delay, check if user is already logged in (cached locally)
         final cachedUser = auth.currentUser;
         if (cachedUser != null) {
-          // User session exists - navigate to home
-          return _buildUserHome(db, cachedUser.uid);
+          return _RoleRouter(uid: cachedUser.uid);
         }
 
-        // No cached user - listen to auth state stream for changes
         return StreamBuilder(
           stream: auth.authStateChanges,
           builder: (context, snapshot) {
             if (snapshot.hasError) {
-              return _buildErrorScreen('Auth error: ${snapshot.error}');
+              return _buildErrorScreen('Error: ${snapshot.error}');
             }
 
             final user = snapshot.data;
             if (user == null) {
-              // User not logged in
               return const WelcomeScreen();
             }
 
-            // User is logged in - navigate to home
-            return _buildUserHome(db, user.uid);
+            return _RoleRouter(uid: user.uid);
           },
         );
       },
     );
   }
 
-  /// Fetch user role and build appropriate home screen
-  Widget _buildUserHome(FirebaseDbService db, String uid) {
-    return FutureBuilder<String?>(
-      future: _getUserRole(db, uid),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return _buildLoadingScreen();
-        }
-
-        if (snapshot.hasError) {
-          return _buildErrorScreen('Error: ${snapshot.error}');
-        }
-
-        final role = snapshot.data;
-        if (role == 'doctor') {
-          return const DoctorHomeScreen();
-        } else if (role == 'patient') {
-          return const PatientHomeScreen();
-        }
-
-        // Invalid or missing role
-        return const WelcomeScreen();
-      },
-    );
-  }
-
-  /// Fetch user role with timeout
-  Future<String?> _getUserRole(FirebaseDbService db, String uid) async {
-    try {
-      return await db
-          .getUserRole(uid)
-          .timeout(const Duration(seconds: 10));
-    } catch (e) {
-      rethrow;
-    }
-  }
-
+  // ── Loading / Error screens ──────────────────────────────────────────────
   Widget _buildLoadingScreen() {
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -116,13 +68,13 @@ class _AuthGateState extends State<AuthGate> {
           children: [
             const CircularProgressIndicator(
               strokeWidth: 2,
-              valueColor:
-                  AlwaysStoppedAnimation(AppColors.patientPrimary),
+              valueColor: AlwaysStoppedAnimation(AppColors.patientPrimary),
             ),
             const SizedBox(height: 16),
-            Text('Loading ChestSense...',
-                style:
-                    AppText.caption.copyWith(color: AppColors.textMuted)),
+            Text(
+              'Loading...',
+              style: AppText.caption.copyWith(color: AppColors.textMuted),
+            ),
           ],
         ),
       ),
@@ -138,17 +90,15 @@ class _AuthGateState extends State<AuthGate> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline_rounded,
+              const Icon(Icons.error_outline_rounded,
                   color: Colors.redAccent, size: 48),
               const SizedBox(height: 16),
-              Text('Oops, something went wrong',
-                  style: AppText.label
-                      .copyWith(color: Colors.redAccent)),
+              Text('Error',
+                  style: AppText.label.copyWith(color: Colors.redAccent)),
               const SizedBox(height: 12),
               Text(error,
                   textAlign: TextAlign.center,
-                  style: AppText.caption
-                      .copyWith(color: AppColors.textMuted)),
+                  style: AppText.caption.copyWith(color: AppColors.textMuted)),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: () => setState(() {}),
@@ -159,6 +109,65 @@ class _AuthGateState extends State<AuthGate> {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────── ROLE ROUTER ──────────────────────────────────────
+
+/// Fetches user role from Firestore then routes to the appropriate dashboard.
+class _RoleRouter extends StatefulWidget {
+  final String uid;
+  const _RoleRouter({required this.uid});
+
+  @override
+  State<_RoleRouter> createState() => _RoleRouterState();
+}
+
+class _RoleRouterState extends State<_RoleRouter> {
+  @override
+  void initState() {
+    super.initState();
+    _resolveRole();
+  }
+
+  Future<void> _resolveRole() async {
+    try {
+      final db = context.read<FirebaseDbService>();
+      final data = await db.getUserData(widget.uid);
+      if (!mounted) return;
+      final role = data?['role'] as String?;
+      final dest = role == 'doctor'
+          ? const DoctorDashboard()
+          : const PatientDashboard();
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => dest,
+          transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+              FadeTransition(opacity: animation, child: child),
+          transitionDuration: const Duration(milliseconds: 400),
+        ),
+      );
+    } catch (_) {
+      // Fallback to patient dashboard on error
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const PatientDashboard()),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: AppColors.bg,
+      body: Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 2,
+          valueColor: AlwaysStoppedAnimation(AppColors.doctorPrimary),
         ),
       ),
     );

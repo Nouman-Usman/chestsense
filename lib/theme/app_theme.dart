@@ -8,8 +8,11 @@ class AppColors {
   static const bg          = Color(0xFF080E1A);  // deepest background
   static const surface     = Color(0xFF0F1923);  // card / dialog surface
   static const surfaceAlt  = Color(0xFF151F2E);  // elevated surface
+  static const surfaceVariant = Color(0xFF1A2D3A); // variant surface
+  static const surfaceTertiary = Color(0xFF1E3344); // tertiary surface
   static const border      = Color(0xFF1E2D40);  // subtle divider / border
   static const overlay     = Color(0xFF1A2535);  // input fill
+  static const primary     = Color(0xFF2563EB);  // primary color (alias)
 
   static const doctorPrimary  = Color(0xFF2563EB);
   static const doctorLight    = Color(0xFF3B82F6);
@@ -28,6 +31,10 @@ class AppColors {
   static const warning = Color(0xFFF59E0B);
   static const error   = Color(0xFFEF4444);
   static const info    = Color(0xFF3B82F6);
+
+  // Glassmorphism overlays
+  static const glassLight = Color(0x1AFFFFFF);  // 10% white
+  static const glassMedium = Color(0x33FFFFFF); // 20% white
 }
 
 
@@ -237,6 +244,54 @@ class AppTheme {
 }
 
 
+/// Glassmorphism container with frosted glass effect
+class GlassmorphicContainer extends StatelessWidget {
+  final Widget child;
+  final Color? backgroundColor;
+  final double? borderRadius;
+  final EdgeInsetsGeometry? padding;
+  final Color borderColor;
+  final double borderWidth;
+  final BoxShadow? shadow;
+
+  const GlassmorphicContainer({
+    super.key,
+    required this.child,
+    this.backgroundColor,
+    this.borderRadius,
+    this.padding,
+    this.borderColor = AppColors.border,
+    this.borderWidth = 1.0,
+    this.shadow,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: padding ?? const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: backgroundColor ?? AppColors.surface.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(borderRadius ?? AppRadius.xl),
+        border: Border.all(color: borderColor, width: borderWidth),
+        boxShadow: shadow != null
+            ? [shadow!]
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                  spreadRadius: 0,
+                ),
+              ],
+        backgroundBlendMode: BlendMode.overlay,
+      ),
+      child: child,
+    );
+  }
+}
+
+// ─────────────────────────── ORIGINAL SHARED WIDGETS ───────────────────────────
+
 /// Branded app logo mark
 class AppLogoMark extends StatelessWidget {
   final double size;
@@ -261,6 +316,12 @@ class AppLogoMark extends StatelessWidget {
             blurRadius: size * 0.4,
             offset: Offset(0, size * 0.12),
           ),
+          BoxShadow(
+            color: color.withValues(alpha: 0.15),
+            blurRadius: size * 0.8,
+            offset: Offset(0, size * 0.18),
+            spreadRadius: size * 0.2,
+          ),
         ],
       ),
       child: Icon(Icons.monitor_heart_rounded,
@@ -284,24 +345,34 @@ class PortalBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        border: Border.all(color: accent.withValues(alpha: 0.25)),
+        color: accent.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(
+          color: accent.withValues(alpha: 0.3),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withValues(alpha: 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: accent),
-          const SizedBox(width: 6),
+          Icon(icon, size: 14, color: accent),
+          const SizedBox(width: 7),
           Text(
             label,
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
               color: accent,
-              letterSpacing: 1.6,
+              letterSpacing: 1.4,
             ),
           ),
         ],
@@ -311,7 +382,7 @@ class PortalBadge extends StatelessWidget {
 }
 
 /// Dark-theme text input with label
-class AppTextField extends StatelessWidget {
+class AppTextField extends StatefulWidget {
   final String label;
   final TextEditingController controller;
   final String hint;
@@ -330,23 +401,47 @@ class AppTextField extends StatelessWidget {
   });
 
   @override
+  State<AppTextField> createState() => _AppTextFieldState();
+}
+
+class _AppTextFieldState extends State<AppTextField> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
+        Text(widget.label,
             style: AppText.label.copyWith(color: AppColors.textSecondary)),
         const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          style: AppText.bodySm.copyWith(color: AppColors.textPrimary),
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: Icon(icon, size: 18, color: AppColors.textMuted),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              borderSide: BorderSide(color: accent, width: 1.5),
+        Focus(
+          onFocusChange: (focused) => setState(() => _focused = focused),
+          child: TextField(
+            controller: widget.controller,
+            keyboardType: widget.keyboardType,
+            style: AppText.bodySm.copyWith(color: AppColors.textPrimary),
+            decoration: InputDecoration(
+              hintText: widget.hint,
+              hintStyle: AppText.bodySm.copyWith(color: AppColors.textMuted),
+              prefixIcon: Icon(widget.icon, size: 18, color: AppColors.textMuted),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                borderSide: BorderSide(
+                  color: AppColors.border.withValues(alpha: 0.5),
+                  width: 1,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                borderSide: BorderSide(color: widget.accent, width: 1.5),
+              ),
+              filled: true,
+              fillColor: _focused 
+                ? widget.accent.withValues(alpha: 0.05)
+                : AppColors.surface.withValues(alpha: 0.4),
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              isDense: true,
             ),
           ),
         ),
@@ -356,7 +451,7 @@ class AppTextField extends StatelessWidget {
 }
 
 /// Dark-theme password field with label + toggle
-class AppPasswordField extends StatelessWidget {
+class AppPasswordField extends StatefulWidget {
   final String label;
   final TextEditingController controller;
   final String hint;
@@ -375,34 +470,58 @@ class AppPasswordField extends StatelessWidget {
   });
 
   @override
+  State<AppPasswordField> createState() => _AppPasswordFieldState();
+}
+
+class _AppPasswordFieldState extends State<AppPasswordField> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
+        Text(widget.label,
             style: AppText.label.copyWith(color: AppColors.textSecondary)),
         const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          obscureText: obscure,
-          style: AppText.bodySm.copyWith(color: AppColors.textPrimary),
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: const Icon(Icons.lock_outline_rounded,
-                size: 18, color: AppColors.textMuted),
-            suffixIcon: IconButton(
-              icon: Icon(
-                obscure
-                    ? Icons.visibility_off_outlined
-                    : Icons.visibility_outlined,
-                size: 18,
-                color: AppColors.textMuted,
+        Focus(
+          onFocusChange: (focused) => setState(() => _focused = focused),
+          child: TextField(
+            controller: widget.controller,
+            obscureText: widget.obscure,
+            style: AppText.bodySm.copyWith(color: AppColors.textPrimary),
+            decoration: InputDecoration(
+              hintText: widget.hint,
+              hintStyle: AppText.bodySm.copyWith(color: AppColors.textMuted),
+              prefixIcon: const Icon(Icons.lock_outline_rounded,
+                  size: 18, color: AppColors.textMuted),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  widget.obscure
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  size: 18,
+                  color: AppColors.textMuted,
+                ),
+                onPressed: widget.onToggle,
               ),
-              onPressed: onToggle,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              borderSide: BorderSide(color: accent, width: 1.5),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                borderSide: BorderSide(
+                  color: AppColors.border.withValues(alpha: 0.5),
+                  width: 1,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                borderSide: BorderSide(color: widget.accent, width: 1.5),
+              ),
+              filled: true,
+              fillColor: _focused 
+                ? widget.accent.withValues(alpha: 0.05)
+                : AppColors.surface.withValues(alpha: 0.4),
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              isDense: true,
             ),
           ),
         ),
@@ -412,7 +531,7 @@ class AppPasswordField extends StatelessWidget {
 }
 
 /// Dark-theme dropdown field with label
-class AppDropdownField extends StatelessWidget {
+class AppDropdownField extends StatefulWidget {
   final String label;
   final String? value;
   final List<String> items;
@@ -433,32 +552,56 @@ class AppDropdownField extends StatelessWidget {
   });
 
   @override
+  State<AppDropdownField> createState() => _AppDropdownFieldState();
+}
+
+class _AppDropdownFieldState extends State<AppDropdownField> {
+  bool _focused = false;
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
+        Text(widget.label,
             style: AppText.label.copyWith(color: AppColors.textSecondary)),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          initialValue: value,
-          dropdownColor: AppColors.surfaceAlt,
-          style: AppText.bodySm.copyWith(color: AppColors.textPrimary),
-          items: items
-              .map((e) => DropdownMenuItem(
-                    value: e,
-                    child: Text(e,
-                        style: AppText.bodySm
-                            .copyWith(color: AppColors.textPrimary)),
-                  ))
-              .toList(),
-          onChanged: onChanged,
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: Icon(icon, size: 18, color: AppColors.textMuted),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppRadius.md),
-              borderSide: BorderSide(color: accent, width: 1.5),
+        Focus(
+          onFocusChange: (focused) => setState(() => _focused = focused),
+          child: DropdownButtonFormField<String>(
+            initialValue: widget.value,
+            dropdownColor: AppColors.surfaceAlt,
+            style: AppText.bodySm.copyWith(color: AppColors.textPrimary),
+            items: widget.items
+                .map((e) => DropdownMenuItem(
+                      value: e,
+                      child: Text(e,
+                          style: AppText.bodySm
+                              .copyWith(color: AppColors.textPrimary)),
+                    ))
+                .toList(),
+            onChanged: widget.onChanged,
+            decoration: InputDecoration(
+              hintText: widget.hint,
+              hintStyle: AppText.bodySm.copyWith(color: AppColors.textMuted),
+              prefixIcon: Icon(widget.icon, size: 18, color: AppColors.textMuted),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                borderSide: BorderSide(
+                  color: AppColors.border.withValues(alpha: 0.5),
+                  width: 1,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                borderSide: BorderSide(color: widget.accent, width: 1.5),
+              ),
+              filled: true,
+              fillColor: _focused 
+                ? widget.accent.withValues(alpha: 0.05)
+                : AppColors.surface.withValues(alpha: 0.4),
+              contentPadding: const EdgeInsets.symmetric(vertical: 14),
+              isDense: true,
             ),
           ),
         ),
@@ -467,16 +610,18 @@ class AppDropdownField extends StatelessWidget {
   }
 }
 
-/// Surface card with consistent dark styling
+/// Surface card with consistent dark styling and glassmorphism options
 class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final double? borderRadius;
+  final bool glassmorphic;
   const AppCard({
     super.key,
     required this.child,
     this.padding,
     this.borderRadius,
+    this.glassmorphic = false,
   });
 
   @override
@@ -484,9 +629,22 @@ class AppCard extends StatelessWidget {
     return Container(
       padding: padding ?? const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: glassmorphic 
+          ? AppColors.surface.withValues(alpha: 0.7)
+          : AppColors.surface,
         borderRadius: BorderRadius.circular(borderRadius ?? AppRadius.xl),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(
+          color: AppColors.border,
+          width: glassmorphic ? 1.5 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: glassmorphic ? 0.2 : 0.1),
+            blurRadius: glassmorphic ? 24 : 12,
+            offset: const Offset(0, 8),
+            spreadRadius: 0,
+          ),
+        ],
       ),
       child: child,
     );
@@ -529,7 +687,7 @@ class StepProgressBar extends StatelessWidget {
   }
 }
 
-/// Primary CTA button with loading state
+/// Primary CTA button with loading state and gradient
 class PrimaryButton extends StatelessWidget {
   final String label;
   final bool isLoading;
@@ -548,39 +706,62 @@ class PrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = color ?? AppColors.doctorPrimary;
+    final baseColor = color ?? AppColors.doctorPrimary;
+    final isDisabled = isLoading || onPressed == null;
+    
     return SizedBox(
       width: double.infinity,
       height: 54,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: bg,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.md),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              baseColor,
+              baseColor.withValues(alpha: 0.85),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          boxShadow: [
+            BoxShadow(
+              color: baseColor.withValues(alpha: 0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+              spreadRadius: 0,
+            ),
+          ],
         ),
-        child: isLoading
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                    color: Colors.white, strokeWidth: 2),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: isDisabled ? null : onPressed,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (isLoading)
+                  const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                        color: Colors.white, strokeWidth: 2),
+                  )
+                else ...[
                   Text(label,
                       style: const TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w600)),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white)),
                   if (trailingIcon != null) ...[
                     const SizedBox(width: 8),
-                    Icon(trailingIcon, size: 18),
+                    Icon(trailingIcon, size: 18, color: Colors.white),
                   ],
                 ],
-              ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
