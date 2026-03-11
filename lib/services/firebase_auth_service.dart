@@ -1,15 +1,20 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
 class FirebaseAuthService {
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
+  late final GoogleSignIn _googleSignIn;
 
-  // Get current user
+  FirebaseAuthService() {
+    _googleSignIn = GoogleSignIn();
+  }
+
   User? get currentUser => _firebaseAuth.currentUser;
 
-  // Stream of auth state changes
   Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
 
-  // Sign up with email and password
   Future<UserCredential> signUpWithEmail({
     required String email,
     required String password,
@@ -21,10 +26,11 @@ class FirebaseAuthService {
       );
     } on FirebaseAuthException catch (e) {
       throw _handleAuthError(e);
+    } catch (e) {
+      throw 'An unexpected error occurred during sign up: $e';
     }
   }
 
-  // Sign in with email and password
   Future<UserCredential> signInWithEmail({
     required String email,
     required String password,
@@ -36,19 +42,53 @@ class FirebaseAuthService {
       );
     } on FirebaseAuthException catch (e) {
       throw _handleAuthError(e);
+    } catch (e) {
+      throw 'An unexpected error occurred during sign in: $e';
     }
   }
 
-  // Sign out
+  Future<UserCredential?> signInWithGoogle() async {
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return null;
+
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      return await _firebaseAuth.signInWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      throw _handleAuthError(e);
+    } on PlatformException catch (e) {
+      if (e.code == 'network_error') {
+        throw 'Network error: Please check your internet connection.';
+      } else if (e.code == 'sign_in_failed') {
+        throw 'Sign in failed. Check if your device supports Google Play Services.';
+      }
+      throw 'Google Sign-In failed: ${e.message}';
+    } catch (e) {
+      if (kIsWeb && e.toString().contains('ClientID not set')) {
+        throw 'Cloud Authentication Error: Google ClientID not properly configured for Web.';
+      }
+      throw 'An unexpected error occurred: $e';
+    }
+  }
+
   Future<void> signOut() async {
     try {
-      await _firebaseAuth.signOut();
+      await Future.wait([
+        _firebaseAuth.signOut(),
+        _googleSignIn.signOut().catchError((_) => null), // Ignore google sign out errors on some platforms
+      ]);
     } catch (e) {
+      debugPrint('Sign out error: $e');
       rethrow;
     }
   }
 
-  // Update user profile
   Future<void> updateUserProfile({
     String? displayName,
     String? photoUrl,
@@ -64,7 +104,6 @@ class FirebaseAuthService {
     }
   }
 
-  // Send password reset email
   Future<void> sendPasswordResetEmail(String email) async {
     try {
       await _firebaseAuth.sendPasswordResetEmail(email: email);
@@ -73,7 +112,6 @@ class FirebaseAuthService {
     }
   }
 
-  // Change password (requires re-authentication)
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
@@ -81,49 +119,39 @@ class FirebaseAuthService {
     try {
       final user = currentUser;
       if (user == null || user.email == null) {
-        throw 'User not authenticated or email not found.';
+        throw 'User not authenticated.';
       }
 
-      // Re-authenticate the user
       final cred = EmailAuthProvider.credential(
         email: user.email!,
         password: currentPassword,
       );
       await user.reauthenticateWithCredential(cred);
-
-      // Update password
       await user.updatePassword(newPassword);
     } on FirebaseAuthException catch (e) {
       throw _handleAuthError(e);
     }
   }
 
-  // Delete user account (requires re-authentication)
   Future<void> deleteAccount({required String password}) async {
     try {
       final user = currentUser;
       if (user == null || user.email == null) {
-        throw 'User not authenticated or email not found.';
+        throw 'User not authenticated.';
       }
 
-      // Re-authenticate the user
       final cred = EmailAuthProvider.credential(
         email: user.email!,
         password: password,
       );
       await user.reauthenticateWithCredential(cred);
-
-      // Delete user account
       await user.delete();
-      
-      // Sign out after deletion
-      await _firebaseAuth.signOut();
+      await signOut();
     } on FirebaseAuthException catch (e) {
       throw _handleAuthError(e);
     }
   }
 
-  // Verify email
   Future<void> sendEmailVerification() async {
     try {
       await currentUser?.sendEmailVerification();
@@ -132,25 +160,25 @@ class FirebaseAuthService {
     }
   }
 
-  // Handle Firebase Auth errors
   String _handleAuthError(FirebaseAuthException e) {
+    debugPrint('Firebase Auth Error: ${e.code} - ${e.message}');
     switch (e.code) {
       case 'user-not-found':
         return 'No user found with this email.';
       case 'wrong-password':
-        return 'Incorrect password provided.';
+        return 'Incorrect password.';
       case 'weak-password':
         return 'The password provided is too weak.';
       case 'email-already-in-use':
         return 'An account already exists with this email.';
       case 'invalid-email':
         return 'The email address is not valid.';
-      case 'operation-not-allowed':
-        return 'Operation not allowed.';
       case 'user-disabled':
         return 'This user account has been disabled.';
-      case 'account-exists-with-different-credential':
-        return 'An account exists with a different credential.';
+      case 'too-many-requests':
+        return 'Too many login attempts. Please try again later.';
+      case 'network-request-failed':
+        return 'Network error: Check your connection.';
       default:
         return e.message ?? 'An authentication error occurred.';
     }

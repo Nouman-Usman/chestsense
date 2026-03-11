@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-// ─────────────────────────── COLOUR TOKENS ───────────────────────────
 
 class AppColors {
   AppColors._();
 
-  // Canvas
   static const bg          = Color(0xFF080E1A);  // deepest background
   static const surface     = Color(0xFF0F1923);  // card / dialog surface
   static const surfaceAlt  = Color(0xFF151F2E);  // elevated surface
@@ -16,23 +14,19 @@ class AppColors {
   static const overlay     = Color(0xFF1A2535);  // input fill
   static const primary     = Color(0xFF2563EB);  // primary color (alias)
 
-  // Brand – Doctor (blue)
   static const doctorPrimary  = Color(0xFF2563EB);
   static const doctorLight    = Color(0xFF3B82F6);
   static const doctorGlow     = Color(0x332563EB);
 
-  // Brand – Patient (teal)
   static const patientPrimary = Color(0xFF0D9488);
   static const patientLight   = Color(0xFF14B8A6);
   static const patientGlow    = Color(0x330D9488);
 
-  // Text
   static const textPrimary   = Color(0xFFF1F5F9);
   static const textSecondary = Color(0xFF94A3B8);
   static const textMuted     = Color(0xFF475569);
   static const textOnAccent  = Colors.white;
 
-  // Status
   static const success = Color(0xFF22C55E);
   static const warning = Color(0xFFF59E0B);
   static const error   = Color(0xFFEF4444);
@@ -43,7 +37,6 @@ class AppColors {
   static const glassMedium = Color(0x33FFFFFF); // 20% white
 }
 
-// ─────────────────────────── SPACING ───────────────────────────
 
 class AppSpacing {
   AppSpacing._();
@@ -55,7 +48,6 @@ class AppSpacing {
   static const double xxl = 48;
 }
 
-// ─────────────────────────── RADIUS ───────────────────────────
 
 class AppRadius {
   AppRadius._();
@@ -66,7 +58,6 @@ class AppRadius {
   static const double xxl = 28;
 }
 
-// ─────────────────────────── TEXT STYLES ───────────────────────────
 
 class AppText {
   AppText._();
@@ -136,7 +127,6 @@ class AppText {
   );
 }
 
-// ─────────────────────────── THEME ───────────────────────────
 
 class AppTheme {
   AppTheme._();
@@ -231,7 +221,6 @@ class AppTheme {
           ),
         ),
       ),
-      // TextButton
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.doctorPrimary,
@@ -246,7 +235,6 @@ class AppTheme {
     );
   }
 
-  // Expose system UI overlay style for dark screens
   static const systemBarDark = SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
@@ -255,7 +243,6 @@ class AppTheme {
   );
 }
 
-// ─────────────────────────── SHARED WIDGETS ───────────────────────────
 
 /// Glassmorphism container with frosted glass effect
 class GlassmorphicContainer extends StatelessWidget {

@@ -22,7 +22,8 @@ service cloud.firestore {
     // ── User profiles ──────────────────────────────────────────────────────
     // Each user can read and write only their own profile.
     match /users/{userId} {
-      allow read:   if isSignedIn() && (isOwner(userId) || isDoctor());
+      allow get:    if isSignedIn() && (isOwner(userId) || isDoctor());
+      allow list:   if isSignedIn() && (isOwner(userId) || isDoctor());
       allow create: if isSignedIn() && isOwner(userId);
       allow update: if isSignedIn() && isOwner(userId);
       allow delete: if false; // never delete profiles
@@ -50,6 +51,16 @@ service cloud.firestore {
       allow create: if isSignedIn() && isOwner(doctorId);
       allow update: if isSignedIn() && isOwner(doctorId);
       allow delete: if false;
+    }
+
+    // ── Doctor analyses (practice/testing scans) ───────────────────────────
+    match /doctorAnalyses/{analysisId} {
+      allow read:   if isSignedIn() && 
+                       (resource.data.doctorUid == request.auth.uid || isDoctor());
+      allow create: if isSignedIn() && isDoctor() && 
+                       request.resource.data.doctorUid == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.doctorUid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.doctorUid == request.auth.uid;
     }
 
     // ── Shared analyses collection (for cross-patient queries) ─────────────

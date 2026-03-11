@@ -1,47 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 import 'screens/auth/auth_gate.dart';
 import 'services/firebase_auth_service.dart';
 import 'services/firebase_db_service.dart';
-import 'core/app_config.dart';
-import 'core/service_registration.dart';
-import 'core/logger_service.dart';
+import 'services/ml_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize configuration service
-  ConfigService.initialize();
-  LoggerService.ml('Application environment: ${ConfigService.instance.environment}');
+  // Clear and limit image cache to reduce storage
+  PaintingBinding.instance.imageCache.clear();
+  PaintingBinding.instance.imageCache.clearLiveImages();
+  PaintingBinding.instance.imageCache.maximumSize = 50; // Limit cached images
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 10 << 20; // 10 MB max
   
-  // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
-  // Register and initialize ML services
-  registerServices();
-  final servicesReady = await initializeServices();
+  // Disable Firestore persistence completely to reduce storage
+  // App requires internet for ML backend anyway
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: false,
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED, // No cache
+  );
   
-  if (!servicesReady) {
-    LoggerService.error('Failed to initialize ML services. App may have limited functionality.');
-  }
+  final mlService = MLService();
+  await mlService.initialize();
   
   SystemChrome.setSystemUIOverlayStyle(AppTheme.systemBarDark);
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-  
-  runApp(const ChestSenseApp());
+  runApp(ChestSenseApp(mlService: mlService));
 }
 
 class ChestSenseApp extends StatelessWidget {
-  const ChestSenseApp({super.key});
+  final MLService mlService;
+  const ChestSenseApp({super.key, required this.mlService});
 
   @override
   Widget build(BuildContext context) {
@@ -53,11 +55,13 @@ class ChestSenseApp extends StatelessWidget {
         ),
         Provider<FirebaseDbService>(
           create: (_) => FirebaseDbService(),
-          lazy: false,
+        ),
+        Provider<MLService>.value(
+          value: mlService,
         ),
       ],
       child: MaterialApp(
-        title: 'Medical Image Analyzer',
+        title: 'ChestSense',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.dark,
         home: const AuthGate(),
