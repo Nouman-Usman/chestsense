@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../theme/app_theme.dart';
 import '../../services/firebase_auth_service.dart';
 import '../../services/firebase_db_service.dart';
 import '../auth/welcome_screen.dart';
@@ -14,26 +13,34 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen>
     with SingleTickerProviderStateMixin {
+  // Colors
+  static const _bgColor = Color(0xFF0f172a);
+  static const _surfaceColor = Color(0xFF1e293b);
+  static const _borderColor = Color(0xFF334155);
+  static const _doctorAccent = Color(0xFF3b82f6);
+  static const _patientAccent = Color(0xFF10b981);
+  static const _textPrimary = Color(0xFFf1f5f9);
+  static const _textSecondary = Color(0xFF94a3b8);
+  static const _textMuted = Color(0xFF64748b);
+
   bool _loading = true;
-  bool _saving   = false;
+  bool _saving = false;
   Map<String, dynamic>? _profile;
 
-  // Controllers for editable fields
-  final _nameCtrl  = TextEditingController();
+  final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
 
   late AnimationController _ctrl;
   late Animation<double> _fade;
-  late Animation<Offset> _slide;
 
   @override
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 500));
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
     _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-    _slide = Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
     _ctrl.forward();
     _loadProfile();
   }
@@ -48,14 +55,14 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Future<void> _loadProfile() async {
     final auth = context.read<FirebaseAuthService>();
-    final db   = context.read<FirebaseDbService>();
-    final uid  = auth.currentUser?.uid;
+    final db = context.read<FirebaseDbService>();
+    final uid = auth.currentUser?.uid;
     if (uid == null) return;
     final data = await db.getUserData(uid);
     if (!mounted) return;
     setState(() {
       _profile = data;
-      _nameCtrl.text  = data?['displayName'] ?? '';
+      _nameCtrl.text = data?['displayName'] ?? '';
       _phoneCtrl.text = data?['phone'] ?? '';
       _loading = false;
     });
@@ -63,8 +70,8 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Future<void> _saveProfile() async {
     final auth = context.read<FirebaseAuthService>();
-    final db   = context.read<FirebaseDbService>();
-    final uid  = auth.currentUser?.uid;
+    final db = context.read<FirebaseDbService>();
+    final uid = auth.currentUser?.uid;
     if (uid == null) return;
 
     setState(() => _saving = true);
@@ -76,12 +83,22 @@ class _ProfileScreenState extends State<ProfileScreen>
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile updated successfully.')),
+        SnackBar(
+          content: const Text('Profile updated successfully'),
+          backgroundColor: Colors.green.shade700,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(
+          content: Text(e.toString()),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
       );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -92,24 +109,27 @@ class _ProfileScreenState extends State<ProfileScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.xl)),
-        title: const Text('Sign out',
-            style: TextStyle(color: AppColors.textPrimary)),
+        backgroundColor: _surfaceColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text(
+          'Sign Out',
+          style: TextStyle(color: _textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
+        ),
         content: const Text(
-            'Are you sure you want to sign out?',
-            style: TextStyle(color: AppColors.textSecondary)),
+          'Are you sure you want to sign out?',
+          style: TextStyle(color: _textSecondary, fontSize: 15),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel',
-                style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text('Cancel', style: TextStyle(color: _textMuted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Sign out',
-                style: TextStyle(color: Colors.redAccent)),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red.shade400,
+            ),
+            child: const Text('Sign Out'),
           ),
         ],
       ),
@@ -127,6 +147,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   Future<void> _changePassword() async {
     final auth = context.read<FirebaseAuthService>();
     final messenger = ScaffoldMessenger.of(context);
+    final role = _profile?['role'] as String? ?? 'patient';
+    final accent = role == 'doctor' ? _doctorAccent : _patientAccent;
 
     final currentPwCtrl = TextEditingController();
     final newPwCtrl = TextEditingController();
@@ -135,61 +157,32 @@ class _ProfileScreenState extends State<ProfileScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.xl)),
-        title: const Text('Change Password',
-            style: TextStyle(color: AppColors.textPrimary)),
+        backgroundColor: _surfaceColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Text(
+          'Change Password',
+          style: TextStyle(color: _textPrimary, fontSize: 20, fontWeight: FontWeight.w600),
+        ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
+              _buildDialogTextField(
                 controller: currentPwCtrl,
-                obscureText: true,
-                decoration: InputDecoration(
-                  hintText: 'Current password',
-                  hintStyle: const TextStyle(color: AppColors.textMuted),
-                  filled: true,
-                  fillColor: AppColors.overlay,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    borderSide: const BorderSide(color: AppColors.border),
-                  ),
-                ),
-                style: const TextStyle(color: AppColors.textPrimary),
+                hint: 'Current password',
+                obscure: true,
               ),
               const SizedBox(height: 12),
-              TextField(
+              _buildDialogTextField(
                 controller: newPwCtrl,
-                obscureText: true,
-                decoration: InputDecoration(
-                  hintText: 'New password',
-                  hintStyle: const TextStyle(color: AppColors.textMuted),
-                  filled: true,
-                  fillColor: AppColors.overlay,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    borderSide: const BorderSide(color: AppColors.border),
-                  ),
-                ),
-                style: const TextStyle(color: AppColors.textPrimary),
+                hint: 'New password',
+                obscure: true,
               ),
               const SizedBox(height: 12),
-              TextField(
+              _buildDialogTextField(
                 controller: confirmPwCtrl,
-                obscureText: true,
-                decoration: InputDecoration(
-                  hintText: 'Confirm new password',
-                  hintStyle: const TextStyle(color: AppColors.textMuted),
-                  filled: true,
-                  fillColor: AppColors.overlay,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                    borderSide: const BorderSide(color: AppColors.border),
-                  ),
-                ),
-                style: const TextStyle(color: AppColors.textPrimary),
+                hint: 'Confirm new password',
+                obscure: true,
               ),
             ],
           ),
@@ -197,13 +190,12 @@ class _ProfileScreenState extends State<ProfileScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel',
-                style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text('Cancel', style: TextStyle(color: _textMuted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Change',
-                style: TextStyle(color: AppColors.patientPrimary)),
+            style: TextButton.styleFrom(foregroundColor: accent),
+            child: const Text('Change'),
           ),
         ],
       ),
@@ -223,7 +215,12 @@ class _ProfileScreenState extends State<ProfileScreen>
     if (current.isEmpty || newPw.isEmpty || confirm.isEmpty) {
       if (mounted) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Please fill all fields.')),
+          SnackBar(
+            content: const Text('Please fill all fields'),
+            backgroundColor: Colors.orange.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
         );
       }
       currentPwCtrl.dispose();
@@ -235,7 +232,12 @@ class _ProfileScreenState extends State<ProfileScreen>
     if (newPw != confirm) {
       if (mounted) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('New passwords do not match.')),
+          SnackBar(
+            content: const Text('New passwords do not match'),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
         );
       }
       currentPwCtrl.dispose();
@@ -247,7 +249,12 @@ class _ProfileScreenState extends State<ProfileScreen>
     if (newPw.length < 6) {
       if (mounted) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Password must be at least 6 characters.')),
+          SnackBar(
+            content: const Text('Password must be at least 6 characters'),
+            backgroundColor: Colors.orange.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
         );
       }
       currentPwCtrl.dispose();
@@ -258,17 +265,20 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     try {
       await auth.changePassword(
-            currentPassword: current,
-            newPassword: newPw,
-          );
+        currentPassword: current,
+        newPassword: newPw,
+      );
       currentPwCtrl.dispose();
       newPwCtrl.dispose();
       confirmPwCtrl.dispose();
       if (mounted) {
         messenger.showSnackBar(
-          const SnackBar(
-              content: Text('Password changed successfully.'),
-              backgroundColor: AppColors.success),
+          SnackBar(
+            content: const Text('Password changed successfully'),
+            backgroundColor: Colors.green.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
         );
       }
     } catch (e) {
@@ -277,7 +287,12 @@ class _ProfileScreenState extends State<ProfileScreen>
       confirmPwCtrl.dispose();
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
         );
       }
     }
@@ -293,46 +308,37 @@ class _ProfileScreenState extends State<ProfileScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.xl)),
-        title: const Text('Delete Account',
-            style: TextStyle(color: Colors.redAccent)),
+        backgroundColor: _surfaceColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text(
+          'Delete Account',
+          style: TextStyle(color: Colors.red.shade400, fontSize: 20, fontWeight: FontWeight.w600),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'This action cannot be undone. All your data will be permanently deleted.',
-              style: AppText.bodySm.copyWith(color: AppColors.textSecondary),
+              style: TextStyle(color: _textSecondary, fontSize: 14, height: 1.5),
             ),
             const SizedBox(height: 16),
-            TextField(
+            _buildDialogTextField(
               controller: passwordCtrl,
-              obscureText: true,
-              decoration: InputDecoration(
-                hintText: 'Enter password to confirm',
-                hintStyle: const TextStyle(color: AppColors.textMuted),
-                filled: true,
-                fillColor: AppColors.overlay,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  borderSide: const BorderSide(color: AppColors.border),
-                ),
-              ),
-              style: const TextStyle(color: AppColors.textPrimary),
+              hint: 'Enter password to confirm',
+              obscure: true,
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel',
-                style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text('Cancel', style: TextStyle(color: _textMuted)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete permanently',
-                style: TextStyle(color: Colors.redAccent)),
+            style: TextButton.styleFrom(foregroundColor: Colors.red.shade400),
+            child: const Text('Delete Permanently'),
           ),
         ],
       ),
@@ -347,7 +353,12 @@ class _ProfileScreenState extends State<ProfileScreen>
     if (password.isEmpty) {
       if (mounted) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Please enter your password.')),
+          SnackBar(
+            content: const Text('Please enter your password'),
+            backgroundColor: Colors.orange.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
         );
       }
       passwordCtrl.dispose();
@@ -367,7 +378,12 @@ class _ProfileScreenState extends State<ProfileScreen>
       passwordCtrl.dispose();
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(content: Text(e.toString())),
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
         );
       }
     }
@@ -376,189 +392,179 @@ class _ProfileScreenState extends State<ProfileScreen>
   @override
   Widget build(BuildContext context) {
     final role = _profile?['role'] as String? ?? 'patient';
-    final accent = role == 'doctor'
-        ? AppColors.doctorPrimary
-        : AppColors.patientPrimary;
+    final accent = role == 'doctor' ? _doctorAccent : _patientAccent;
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: _bgColor,
       body: FadeTransition(
         opacity: _fade,
-        child: SlideTransition(
-          position: _slide,
-          child: SafeArea(
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 16, 24, 0),
-                  child: Row(children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back_rounded,
-                          color: AppColors.textSecondary),
-                      style: IconButton.styleFrom(
-                        backgroundColor: AppColors.surface,
-                        side: const BorderSide(color: AppColors.border),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 24, 16),
+                child: Row(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: _surfaceColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _borderColor),
                       ),
-                      onPressed: () => Navigator.of(context).pop(),
+                      child: IconButton(
+                        icon: const Icon(Icons.arrow_back_rounded, color: _textSecondary),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
                     ),
-                    const SizedBox(width: 12),
-                    Text('Profile settings',
-                        style: AppText.headingMd
-                            .copyWith(color: AppColors.textPrimary)),
-                  ]),
+                    const SizedBox(width: 16),
+                    const Text(
+                      'Profile Settings',
+                      style: TextStyle(
+                        color: _textPrimary,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: _loading
-                      ? Center(
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: accent))
-                      : SingleChildScrollView(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              _buildAvatar(role, accent),
-                              const SizedBox(height: 28),
-                              _SectionHeader(label: 'Personal information'),
-                              const SizedBox(height: 12),
-                              AppTextField(
-                                label: 'Full name',
-                                controller: _nameCtrl,
-                                hint: 'Full name',
-                                icon: Icons.person_outline_rounded,
-                                accent: accent,
-                              ),
-                              const SizedBox(height: 12),
-                              AppTextField(
-                                label: 'Phone number',
-                                controller: _phoneCtrl,
-                                hint: 'Phone number',
-                                icon: Icons.phone_outlined,
-                                keyboardType: TextInputType.phone,
-                                accent: accent,
-                              ),
-                              const SizedBox(height: 24),
-                              _SectionHeader(label: 'Account details'),
-                              const SizedBox(height: 12),
-                              _InfoTile(
-                                icon: Icons.email_outlined,
-                                label: 'Email',
-                                value: _profile?['email'] ?? '—',
-                              ),
-                              const SizedBox(height: 8),
-                              _InfoTile(
-                                icon: Icons.badge_outlined,
-                                label: 'Role',
-                                value: role == 'doctor' ? 'Doctor' : 'Patient',
-                                accent: accent,
-                              ),
-                              // Doctor-specific read-only fields
-                              if (role == 'doctor') ...[
-                                const SizedBox(height: 8),
-                                _InfoTile(
-                                  icon: Icons.local_hospital_outlined,
-                                  label: 'Specialization',
-                                  value: _profile?['specialization'] ?? '—',
-                                ),
-                                const SizedBox(height: 8),
-                                _InfoTile(
-                                  icon: Icons.verified_outlined,
-                                  label: 'Medical license',
-                                  value: _profile?['licenseNumber'] ?? '—',
-                                ),
-                              ],
-                              // Patient-specific read-only fields
-                              if (role == 'patient') ...[
-                                const SizedBox(height: 8),
-                                _InfoTile(
-                                  icon: Icons.cake_outlined,
-                                  label: 'Age',
-                                  value: _profile?['age'] ?? '—',
-                                ),
-                                const SizedBox(height: 8),
-                                _InfoTile(
-                                  icon: Icons.wc_outlined,
-                                  label: 'Gender',
-                                  value: _profile?['gender'] ?? '—',
-                                ),
-                              ],
-                              const SizedBox(height: 32),
-                              PrimaryButton(
-                                label: 'Save changes',
-                                color: accent,
-                                isLoading: _saving,
-                                onPressed: _saveProfile,
-                                trailingIcon: Icons.save_outlined,
-                              ),
-                              const SizedBox(height: 12),
-                              OutlinedButton.icon(
-                                onPressed: _changePassword,
-                                style: OutlinedButton.styleFrom(
-                                  side: BorderSide(color: accent.withAlpha(100)),
-                                  foregroundColor: accent,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                        AppRadius.md),
-                                  ),
-                                ),
-                                icon: const Icon(
-                                    Icons.key_outlined, size: 18),
-                                label: const Text('Change Password'),
-                              ),
-                              const SizedBox(height: 12),
-                              OutlinedButton.icon(
-                                onPressed: _deleteAccount,
-                                style: OutlinedButton.styleFrom(
-                                  side: BorderSide(
-                                      color: Colors.redAccent.withAlpha(100)),
-                                  foregroundColor: Colors.redAccent,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                        AppRadius.md),
-                                  ),
-                                ),
-                                icon: const Icon(
-                                    Icons.delete_outline_rounded, size: 18),
-                                label: const Text('Delete Account'),
-                              ),
-                              const SizedBox(height: 12),
-                              OutlinedButton.icon(
-                                onPressed: _signOut,
-                                style: OutlinedButton.styleFrom(
-                                  side: BorderSide(
-                                      color: Colors.redAccent.withAlpha(100)),
-                                  foregroundColor: Colors.redAccent,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                        AppRadius.md),
-                                  ),
-                                ),
-                                icon: const Icon(
-                                    Icons.logout_rounded, size: 18),
-                                label: const Text('Sign out'),
-                              ),
-                              const SizedBox(height: 32),
-                            ],
-                          ),
+              ),
+
+              // Content
+              Expanded(
+                child: _loading
+                    ? Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: accent,
                         ),
-                ),
-              ],
-            ),
+                      )
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            // Avatar section
+                            _buildAvatar(role, accent),
+                            const SizedBox(height: 32),
+
+                            // Personal Information
+                            _buildSectionHeader('Personal Information'),
+                            const SizedBox(height: 12),
+                            _buildTextField(
+                              controller: _nameCtrl,
+                              label: 'Full Name',
+                              icon: Icons.person_outline,
+                              accent: accent,
+                            ),
+                            const SizedBox(height: 12),
+                            _buildTextField(
+                              controller: _phoneCtrl,
+                              label: 'Phone Number',
+                              icon: Icons.phone_outlined,
+                              accent: accent,
+                              keyboardType: TextInputType.phone,
+                            ),
+                            const SizedBox(height: 28),
+
+                            // Account Details
+                            _buildSectionHeader('Account Details'),
+                            const SizedBox(height: 12),
+                            _buildInfoTile(
+                              icon: Icons.email_outlined,
+                              label: 'Email',
+                              value: _profile?['email'] ?? '—',
+                            ),
+                            const SizedBox(height: 10),
+                            _buildInfoTile(
+                              icon: Icons.badge_outlined,
+                              label: 'Role',
+                              value: role == 'doctor' ? 'Doctor' : 'Patient',
+                              accent: accent,
+                            ),
+
+                            // Doctor-specific fields
+                            if (role == 'doctor') ...[
+                              const SizedBox(height: 10),
+                              _buildInfoTile(
+                                icon: Icons.local_hospital_outlined,
+                                label: 'Specialization',
+                                value: _profile?['specialization'] ?? '—',
+                              ),
+                              const SizedBox(height: 10),
+                              _buildInfoTile(
+                                icon: Icons.verified_outlined,
+                                label: 'Medical License',
+                                value: _profile?['licenseNumber'] ?? '—',
+                              ),
+                            ],
+
+                            // Patient-specific fields
+                            if (role == 'patient') ...[
+                              const SizedBox(height: 10),
+                              _buildInfoTile(
+                                icon: Icons.cake_outlined,
+                                label: 'Age',
+                                value: _profile?['age']?.toString() ?? '—',
+                              ),
+                              const SizedBox(height: 10),
+                              _buildInfoTile(
+                                icon: Icons.wc_outlined,
+                                label: 'Gender',
+                                value: _profile?['gender'] ?? '—',
+                              ),
+                            ],
+
+                            const SizedBox(height: 32),
+
+                            // Save Button
+                            _buildActionButton(
+                              label: 'Save Changes',
+                              icon: Icons.save_outlined,
+                              color: accent,
+                              isLoading: _saving,
+                              onPressed: _saveProfile,
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Change Password
+                            _buildOutlineButton(
+                              label: 'Change Password',
+                              icon: Icons.key_outlined,
+                              color: accent,
+                              onPressed: _changePassword,
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Delete Account
+                            _buildOutlineButton(
+                              label: 'Delete Account',
+                              icon: Icons.delete_outline_rounded,
+                              color: Colors.red.shade400,
+                              onPressed: _deleteAccount,
+                            ),
+                            const SizedBox(height: 12),
+
+                            // Sign Out
+                            _buildOutlineButton(
+                              label: 'Sign Out',
+                              icon: Icons.logout_rounded,
+                              color: Colors.red.shade400,
+                              onPressed: _signOut,
+                            ),
+                            const SizedBox(height: 32),
+                          ],
+                        ),
+                      ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
+  // Widget Builders
   Widget _buildAvatar(String role, Color accent) {
     final initials = (_nameCtrl.text.isNotEmpty
             ? _nameCtrl.text.trim().split(' ')
@@ -570,83 +576,277 @@ class _ProfileScreenState extends State<ProfileScreen>
     return Center(
       child: Column(
         children: [
-          CircleAvatar(
-            radius: 44,
-            backgroundColor: accent.withAlpha(30),
-            child: Text(
-              initials,
-              style: AppText.headingLg.copyWith(color: accent),
+          Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                colors: [accent.withOpacity(0.3), accent.withOpacity(0.1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(color: accent.withOpacity(0.3), width: 2),
+            ),
+            child: Center(
+              child: Text(
+                initials,
+                style: TextStyle(
+                  color: accent,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
-            _nameCtrl.text.isEmpty ? 'Your name' : _nameCtrl.text,
-            style: AppText.headingMd.copyWith(color: AppColors.textPrimary),
+            _nameCtrl.text.isEmpty ? 'Your Name' : _nameCtrl.text,
+            style: const TextStyle(
+              color: _textPrimary,
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          const SizedBox(height: 4),
-          PortalBadge(
-            label: role.toUpperCase(),
-            icon: role == 'doctor'
-                ? Icons.medical_services_outlined
-                : Icons.person_outline_rounded,
-            accent: accent,
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: accent.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: accent.withOpacity(0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  role == 'doctor' ? Icons.medical_services : Icons.person,
+                  size: 14,
+                  color: accent,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  role.toUpperCase(),
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
-}
 
-
-class _SectionHeader extends StatelessWidget {
-  final String label;
-  const _SectionHeader({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Text(label,
-        style: AppText.caption.copyWith(
-            color: AppColors.textMuted,
-            letterSpacing: 0.8,
-            fontWeight: FontWeight.w600));
-  }
-}
-
-class _InfoTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color? accent;
-  const _InfoTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        border: Border.all(color: AppColors.border),
+  Widget _buildSectionHeader(String label) {
+    return Text(
+      label.toUpperCase(),
+      style: const TextStyle(
+        color: _textMuted,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1,
       ),
-      child: Row(children: [
-        Icon(icon,
-            size: 18,
-            color: accent ?? AppColors.textSecondary.withAlpha(160)),
-        const SizedBox(width: 12),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label,
-              style: AppText.caption
-                  .copyWith(color: AppColors.textMuted)),
-          const SizedBox(height: 2),
-          Text(value,
-              style: AppText.bodyLg.copyWith(color: AppColors.textPrimary)),
-        ]),
-      ]),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required Color accent,
+    TextInputType? keyboardType,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: _surfaceColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _borderColor),
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        style: const TextStyle(color: _textPrimary, fontSize: 16),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: _textMuted, fontSize: 14),
+          prefixIcon: Icon(icon, color: accent, size: 20),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          floatingLabelBehavior: FloatingLabelBehavior.auto,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoTile({
+    required IconData icon,
+    required String label,
+    required String value,
+    Color? accent,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _surfaceColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _borderColor),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: (accent ?? _textSecondary).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              icon,
+              color: accent ?? _textSecondary,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: _textMuted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    color: _textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+    bool isLoading = false,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: ElevatedButton(
+        onPressed: isLoading ? null : onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          disabledBackgroundColor: color.withOpacity(0.6),
+        ),
+        child: isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 20),
+                  const SizedBox(width: 10),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _buildOutlineButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: color.withOpacity(0.3), width: 1.5),
+          foregroundColor: color,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 20),
+            const SizedBox(width: 10),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDialogTextField({
+    required TextEditingController controller,
+    required String hint,
+    bool obscure = false,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: _bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _borderColor),
+      ),
+      child: TextField(
+        controller: controller,
+        obscureText: obscure,
+        style: const TextStyle(color: _textPrimary, fontSize: 15),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(color: _textMuted, fontSize: 14),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+      ),
     );
   }
 }

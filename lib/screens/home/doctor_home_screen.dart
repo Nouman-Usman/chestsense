@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../services/firebase_auth_service.dart';
+import '../../services/firebase_db_service.dart';
 import '../doctor/xray_doctor_screen.dart';
 import '../shared/profile_screen.dart';
 
@@ -57,6 +58,8 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen>
   @override
   Widget build(BuildContext context) {
     final auth = context.read<FirebaseAuthService>();
+    final db = context.read<FirebaseDbService>();
+    final uid = auth.currentUser?.uid ?? '';
     final name = auth.currentUser?.displayName ?? 'Doctor';
     final firstName = name.split(' ').last;
 
@@ -137,30 +140,40 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen>
               Expanded(
                 child: FadeSlideIn(
                   delay: const Duration(milliseconds: 220),
-                  child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                    stream: FirebaseFirestore.instance
-                        .collectionGroup('analyses')
-                        .orderBy('createdAt', descending: true)
-                        .limit(50)
-                        .snapshots(),
-                    builder: (context, snap) {
-                      if (snap.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: _accent));
-                      }
-                      final docs = snap.data?.docs ?? [];
-                      if (docs.isEmpty) return const _EmptyAnalyses();
-                      return ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
-                        itemCount: docs.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: 10),
-                        itemBuilder: (context, i) =>
-                            _AnalysisCard(data: docs[i].data(), accent: _accent),
-                      );
-                    },
-                  ),
+                  child: uid.isEmpty
+                      ? const _EmptyAnalyses()
+                      : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                          stream: db.getDoctorAnalysesStream(uid),
+                          builder: (context, snap) {
+                            if (snap.hasError) {
+                              return Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Text(
+                                    'Error: ${snap.error}',
+                                    style: AppText.caption.copyWith(color: AppColors.error),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              );
+                            }
+                            if (snap.connectionState == ConnectionState.waiting) {
+                              return const Center(
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: _accent));
+                            }
+                            final docs = snap.data?.docs ?? [];
+                            if (docs.isEmpty) return const _EmptyAnalyses();
+                            return ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                              itemCount: docs.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (context, i) =>
+                                  _AnalysisCard(data: docs[i].data(), accent: _accent),
+                            );
+                          },
+                        ),
                 ),
               ),
             ],
@@ -232,7 +245,7 @@ class _HeroCta extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Upload a chest X-ray to get AI diagnosis\nwith visual heatmap overlay.',
+                    'Upload a chest X-ray to get diagnosis\nwith visual heatmap overlay.',
                     style: AppText.bodySm,
                   ),
                   const SizedBox(height: 20),

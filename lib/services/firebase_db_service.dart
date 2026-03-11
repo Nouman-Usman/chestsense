@@ -266,6 +266,37 @@ class FirebaseDbService {
     return snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
   }
 
+  /// Save doctor's practice analysis to a dedicated collection
+  Future<String> saveDoctorAnalysis({
+    required String doctorUid,
+    String? imageUrl,
+    required String diagnosis,
+    required double confidence,
+    required Map<String, double> classScores,
+    String? heatmapUrl,
+  }) async {
+    final ref = await _firestore.collection('doctorAnalyses').add({
+      'doctorUid': doctorUid,
+      'imageUrl': imageUrl,
+      'heatmapUrl': heatmapUrl,
+      'diagnosis': diagnosis,
+      'confidence': confidence,
+      'classScores': classScores,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    return ref.id;
+  }
+
+  /// Stream all doctor analyses (for doctor dashboard)
+  Stream<QuerySnapshot<Map<String, dynamic>>> getDoctorAnalysesStream(
+      String doctorUid) {
+    return _firestore
+        .collection('doctorAnalyses')
+        .where('doctorUid', isEqualTo: doctorUid)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
   Future<String?> getUserRole(String uid) async {
     try {
       final doc = await _firestore.collection('users').doc(uid).get();

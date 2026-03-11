@@ -25,18 +25,18 @@ class _XrayUploadScreenState extends State<XrayUploadScreen>
       : AppColors.patientPrimary;
 
   static const List<String> _testImages = [
-    'test-images/Class_A_A0038_1.3.6.1.4.1.14519.5.2.1.6655.2359.200964933229773819858342958376.png',
-    'test-images/Class_A_A0112_1.3.6.1.4.1.14519.5.2.1.6655.2359.133514946679481457237095867057.png',
-    'test-images/Class_A_A0135_1.3.6.1.4.1.14519.5.2.1.6655.2359.229546735729215903345807275212.png',
-    'test-images/Class_B_B0012_1.3.6.1.4.1.14519.5.2.1.6655.2359.251928415045889960528301518132.png',
-    'test-images/Class_B_B0019_1.3.6.1.4.1.14519.5.2.1.6655.2359.542688158494865904457546511093.png',
-    'test-images/Class_B_B0038_1.3.6.1.4.1.14519.5.2.1.6655.2359.241194015321121397721615046131.png',
-    'test-images/Class_E_E0004_1.3.6.1.4.1.14519.5.2.1.6655.2359.258085984221221292325353998664.png',
-    'test-images/Class_E_E0004_1.3.6.1.4.1.14519.5.2.1.6655.2359.319078072563246713259486471363.png',
-    'test-images/Class_E_E0004_1.3.6.1.4.1.14519.5.2.1.6655.2359.501875774437494706086763872552.png',
-    'test-images/Class_G_G0002_1.3.6.1.4.1.14519.5.2.1.6655.2359.250157524168081247720689697171.png',
-    'test-images/Class_G_G0048_1.3.6.1.4.1.14519.5.2.1.6655.2359.132679891311395561463279459011.png',
-    'test-images/Class_G_G0056_1.3.6.1.4.1.14519.5.2.1.6655.2359.250923355059840684410808786741.png',
+    'test-images/1.png',
+    'test-images/2.png',
+    'test-images/3.png',
+    'test-images/4.png',
+    'test-images/5.png',
+    'test-images/6.png',
+    'test-images/7.png',
+    'test-images/8.png',
+    'test-images/9.png',
+    'test-images/10.png',
+    'test-images/11.png',
+    'test-images/12.png',
   ];
 
   XFile? _xfile;

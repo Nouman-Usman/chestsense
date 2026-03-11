@@ -52,6 +52,16 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Doctor analyses (practice/testing scans) ───────────────────────────
+    match /doctorAnalyses/{analysisId} {
+      allow read:   if isSignedIn() && 
+                       (resource.data.doctorUid == request.auth.uid || isDoctor());
+      allow create: if isSignedIn() && isDoctor() && 
+                       request.resource.data.doctorUid == request.auth.uid;
+      allow update: if isSignedIn() && resource.data.doctorUid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.doctorUid == request.auth.uid;
+    }
+
     // ── Shared analyses collection (for cross-patient queries) ─────────────
     match /analyses/{analysisId} {
       allow read:   if isSignedIn() &&

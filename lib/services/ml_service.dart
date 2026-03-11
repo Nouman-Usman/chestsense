@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class MLService {
-  static const String _baseUrl = 'http://192.168.1.103:5001'; 
+  static const String _baseUrl = 'https://noumanusman-chestsense.hf.space'; 
   static const int _timeout = 120; // seconds
 
   final http.Client _client = http.Client();

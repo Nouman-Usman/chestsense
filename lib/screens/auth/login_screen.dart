@@ -175,25 +175,6 @@ class _LoginScreenState extends State<LoginScreen>
                           trailingIcon: Icons.arrow_forward_rounded,
                           onPressed: _submit,
                         ),
-                        const SizedBox(height: 16),
-                        Row(children: [
-                          const Expanded(
-                              child: Divider(color: AppColors.border)),
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 12),
-                            child: Text('or', style: AppText.caption),
-                          ),
-                          const Expanded(
-                              child: Divider(color: AppColors.border)),
-                        ]),
-                        const SizedBox(height: 16),
-                        OutlinedButton.icon(
-                          onPressed: () {},
-                          icon: const Icon(Icons.fingerprint_rounded,
-                              size: 20),
-                          label: const Text('Sign in with Biometrics'),
-                        ),
                       ],
                     ),
                   ),

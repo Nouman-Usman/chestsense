@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../theme/app_theme.dart';
 import '../../services/firebase_auth_service.dart';
 import '../../services/firebase_db_service.dart';
 import 'login_screen.dart';
@@ -26,27 +25,27 @@ class _PatientSignupScreenState extends State<PatientSignupScreen>
   bool _loading  = false;
   String? _gender;
   String? _blood;
-  static const _accent = AppColors.patientPrimary;
+  static const _accent = Color(0xFF10b981);
   static const _genders = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
   static const _bloods  = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
-  late AnimationController _ctrl;
-  late Animation<double> _fade;
-  late Animation<Offset> _slide;
+  late AnimationController _fadeCtrl;
+  late Animation<double> _fadeAnim;
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 550));
-    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-    _slide = Tween<Offset>(begin: const Offset(0, 0.10), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
-    _ctrl.forward();
+    _fadeCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
+    _fadeCtrl.forward();
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _fadeCtrl.dispose();
     for (final c in [_name, _age, _email, _phone, _pass, _confirm]) { c.dispose(); }
     super.dispose();
   }
@@ -109,115 +108,407 @@ class _PatientSignupScreenState extends State<PatientSignupScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: const Color(0xFF0f172a),
       body: FadeTransition(
-        opacity: _fade,
-        child: SlideTransition(
-          position: _slide,
-          child: SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 24),
-                  IconButton(
-                    onPressed: _step == 0
-                        ? () => Navigator.of(context).pop()
-                        : () => setState(() => _step = 0),
-                    icon: const Icon(Icons.arrow_back_rounded,
-                        color: AppColors.textSecondary),
-                    style: IconButton.styleFrom(
-                      backgroundColor: AppColors.surface,
-                      side: const BorderSide(color: AppColors.border),
+        opacity: _fadeAnim,
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 24),
+                IconButton(
+                  onPressed: _step == 0
+                      ? () => Navigator.of(context).pop()
+                      : () => setState(() => _step = 0),
+                  icon: const Icon(Icons.arrow_back, color: Colors.white70),
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xFF1e293b),
+                  ),
+                ),
+                const SizedBox(height: 48),
+                Center(
+                  child: Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: _accent.withAlpha(30),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.person_outline,
+                      color: _accent,
+                      size: 30,
                     ),
                   ),
-                  const SizedBox(height: 28),
-                  PortalBadge(label: 'PATIENT REGISTRATION', icon: Icons.favorite_border_rounded, accent: _accent),
-                  const SizedBox(height: 16),
-                  Text('Create account', style: AppText.displayMd),
-                  const SizedBox(height: 8),
-                  Text(_step == 0
-                      ? 'Tell us about yourself.'
-                      : 'Set up your login details.',
-                      style: AppText.bodyLg),
-                  const SizedBox(height: 24),
-                  StepProgressBar(current: _step, total: 2, accent: _accent),
-                  const SizedBox(height: 28),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 320),
-                    transitionBuilder: (child, anim) => FadeTransition(
-                      opacity: anim,
-                      child: SlideTransition(
-                        position: Tween<Offset>(
-                          begin: const Offset(0.06, 0),
-                          end: Offset.zero,
-                        ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
-                        child: child,
-                      ),
+                ),
+                const SizedBox(height: 24),
+                const Center(
+                  child: Text(
+                    'Patient Registration',
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
-                    child: _step == 0
-                        ? AppCard(
-                            key: const ValueKey('step0'),
-                            child: Column(children: [
-                              AppTextField(label: 'FULL NAME', controller: _name, hint: 'John Doe', icon: Icons.person_outline_rounded, accent: _accent),
-                              const SizedBox(height: 20),
-                              AppTextField(label: 'AGE', controller: _age, hint: '35', icon: Icons.cake_outlined, accent: _accent, keyboardType: TextInputType.number),
-                              const SizedBox(height: 20),
-                              AppDropdownField(label: 'GENDER', value: _gender, items: _genders, hint: 'Select gender', icon: Icons.wc_rounded, accent: _accent, onChanged: (v) => setState(() => _gender = v)),
-                              const SizedBox(height: 20),
-                              AppDropdownField(label: 'BLOOD GROUP', value: _blood, items: _bloods, hint: 'Select blood group', icon: Icons.bloodtype_outlined, accent: _accent, onChanged: (v) => setState(() => _blood = v)),
-                            ]),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Center(
+                  child: Text(
+                    'Step ${_step + 1} of 2',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildStepIndicator(),
+                const SizedBox(height: 32),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: _step == 0 ? _buildStep1() : _buildStep2(),
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: ElevatedButton(
+                    onPressed: _loading ? null : _next,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _accent,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: _loading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation(Colors.white),
+                            ),
                           )
-                        : AppCard(
-                            key: const ValueKey('step1'),
-                            child: Column(children: [
-                              AppTextField(label: 'EMAIL ADDRESS', controller: _email, hint: 'patient@email.com', icon: Icons.email_outlined, accent: _accent, keyboardType: TextInputType.emailAddress),
-                              const SizedBox(height: 20),
-                              AppTextField(label: 'PHONE NUMBER', controller: _phone, hint: '+1 (555) 000-0000', icon: Icons.phone_outlined, accent: _accent, keyboardType: TextInputType.phone),
-                              const SizedBox(height: 20),
-                              AppPasswordField(label: 'PASSWORD', controller: _pass, hint: '••••••••', obscure: _obscure1, accent: _accent, onToggle: () => setState(() => _obscure1 = !_obscure1)),
-                              const SizedBox(height: 20),
-                              AppPasswordField(label: 'CONFIRM PASSWORD', controller: _confirm, hint: '••••••••', obscure: _obscure2, accent: _accent, onToggle: () => setState(() => _obscure2 = !_obscure2)),
-                              const SizedBox(height: 16),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(width: 20, height: 20, child: Checkbox(value: _terms, onChanged: (v) => setState(() => _terms = v ?? false), activeColor: _accent)),
-                                  const SizedBox(width: 10),
-                                  Expanded(child: Text('I agree to the Terms of Service and Privacy Policy', style: AppText.bodySm)),
-                                ],
-                              ),
-                            ]),
+                        : Text(
+                            _step == 0 ? 'Next' : 'Create Account',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                   ),
-                  const SizedBox(height: 28),
-                  PrimaryButton(
-                    label: _step == 0 ? 'Continue' : 'Create Account',
-                    isLoading: _loading,
-                    color: _accent,
-                    trailingIcon: _step == 0 ? Icons.arrow_forward_rounded : Icons.check_rounded,
-                    onPressed: _next,
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('Already have an account?', style: AppText.bodySm),
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pushReplacement(_fadeRoute(const LoginScreen())),
-                        style: TextButton.styleFrom(foregroundColor: _accent),
-                        child: const Text('Sign in'),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      'Already have an account?',
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pushReplacement(
+                        _fadeRoute(const LoginScreen()),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                ],
-              ),
+                      child: const Text(
+                        'Sign in',
+                        style: TextStyle(
+                          color: _accent,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+              ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildStepIndicator() {
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 4,
+            decoration: BoxDecoration(
+              color: _accent,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Container(
+            height: 4,
+            decoration: BoxDecoration(
+              color: _step == 1 ? _accent : const Color(0xFF334155),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep1() {
+    return Column(
+      key: const ValueKey('step0'),
+      children: [
+        _buildTextField(
+          label: 'Full Name',
+          controller: _name,
+          hint: 'John Doe',
+          icon: Icons.person_outline,
+        ),
+        const SizedBox(height: 20),
+        _buildTextField(
+          label: 'Age',
+          controller: _age,
+          hint: 'e.g. 35',
+          icon: Icons.cake_outlined,
+          keyboardType: TextInputType.number,
+        ),
+        const SizedBox(height: 20),
+        _buildDropdown(
+          label: 'Gender',
+          value: _gender,
+          items: _genders,
+          icon: Icons.wc_outlined,
+          onChanged: (v) => setState(() => _gender = v),
+        ),
+        const SizedBox(height: 20),
+        _buildDropdown(
+          label: 'Blood Type',
+          value: _blood,
+          items: _bloods,
+          icon: Icons.bloodtype_outlined,
+          onChanged: (v) => setState(() => _blood = v),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStep2() {
+    return Column(
+      key: const ValueKey('step1'),
+      children: [
+        _buildTextField(
+          label: 'Email Address',
+          controller: _email,
+          hint: 'patient@example.com',
+          icon: Icons.email_outlined,
+          keyboardType: TextInputType.emailAddress,
+        ),
+        const SizedBox(height: 20),
+        _buildTextField(
+          label: 'Phone Number',
+          controller: _phone,
+          hint: '+1 (555) 000-0000',
+          icon: Icons.phone_outlined,
+          keyboardType: TextInputType.phone,
+        ),
+        const SizedBox(height: 20),
+        _buildPasswordField(
+          label: 'Password',
+          controller: _pass,
+          obscure: _obscure1,
+          onToggle: () => setState(() => _obscure1 = !_obscure1),
+        ),
+        const SizedBox(height: 20),
+        _buildPasswordField(
+          label: 'Confirm Password',
+          controller: _confirm,
+          obscure: _obscure2,
+          onToggle: () => setState(() => _obscure2 = !_obscure2),
+        ),
+        const SizedBox(height: 20),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Checkbox(
+              value: _terms,
+              onChanged: (v) => setState(() => _terms = v ?? false),
+              activeColor: _accent,
+              side: const BorderSide(color: Colors.white54),
+            ),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: Text(
+                  'I agree to the Terms of Service & Privacy Policy',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    TextInputType? keyboardType,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(color: Colors.white38),
+            filled: true,
+            fillColor: const Color(0xFF1e293b),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF334155)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: _accent, width: 2),
+            ),
+            prefixIcon: Icon(icon, color: Colors.white54),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPasswordField({
+    required String label,
+    required TextEditingController controller,
+    required bool obscure,
+    required VoidCallback onToggle,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          obscureText: obscure,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: '••••••••',
+            hintStyle: const TextStyle(color: Colors.white38),
+            filled: true,
+            fillColor: const Color(0xFF1e293b),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF334155)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: _accent, width: 2),
+            ),
+            prefixIcon: const Icon(Icons.lock_outline, color: Colors.white54),
+            suffixIcon: IconButton(
+              icon: Icon(
+                obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                color: Colors.white54,
+              ),
+              onPressed: onToggle,
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdown({
+    required String label,
+    required String? value,
+    required List<String> items,
+    required IconData icon,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: value,
+          items: items.map((item) => DropdownMenuItem(
+            value: item,
+            child: Text(item, style: const TextStyle(color: Colors.white)),
+          )).toList(),
+          onChanged: onChanged,
+          dropdownColor: const Color(0xFF1e293b),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFF1e293b),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF334155)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: _accent, width: 2),
+            ),
+            prefixIcon: Icon(icon, color: Colors.white54),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          ),
+          style: const TextStyle(color: Colors.white),
+          icon: const Icon(Icons.arrow_drop_down, color: Colors.white54),
+        ),
+      ],
     );
   }
 }
@@ -225,8 +516,8 @@ class _PatientSignupScreenState extends State<PatientSignupScreen>
 Route<void> _fadeRoute(Widget page) {
   return PageRouteBuilder(
     pageBuilder: (context, anim, secondary) => page,
-    transitionDuration: const Duration(milliseconds: 380),
+    transitionDuration: const Duration(milliseconds: 300),
     transitionsBuilder: (context, anim, secondary, child) => FadeTransition(
-      opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut), child: child),
+      opacity: anim, child: child),
   );
 }
